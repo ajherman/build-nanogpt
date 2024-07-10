@@ -1,0 +1,26 @@
+Notes from the Karpathy video:
+
+This is a 124M parameter model (but the paper says 117M, which is just an error)
+
+The gelu function used in the gpt2 paper uses the tanh approximation
+
+3e-4 good learning rate for initial tests/debug
+
+the final linear layer and the token embedding matrix are weight tied (in this code and the original gpt2 paper)
+
+torch.cuda.synchronize does something good too...
+
+with torch.autocast for setting universal mixed precision
+
+torch.compile compiles model which increases speed too
+
+question: is gpt2 supposed to use dropout?
+
+surprisingly, increaseing the vocab size to have more powers of 2 speeds up computation
+
+question: are the scale and bias parameters for the layers norms supposed to be learnable?
+
+using ddp and torchrun
+
+turning off require_grad_sync allows different gpus to remain unsynchronized, which is good i guess
+
