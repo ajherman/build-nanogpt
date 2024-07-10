@@ -7,7 +7,12 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from hellaswag import render_example, iterate_examples
+import argparse 
 # -----------------------------------------------------------------------------
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--micro_batch_size', type=int, default=64, help='How many samples to run on a single gpu at a time')
+args = parser.parse_args()
 
 class CausalSelfAttention(nn.Module):
 
@@ -322,7 +327,7 @@ if torch.cuda.is_available():
 enc = tiktoken.get_encoding("gpt2")
 
 total_batch_size = 524288 # 2**19, ~0.5M, in number of tokens
-B = 64 # micro batch size
+B = args.micro_batch_size # micro batch size
 T = 1024 # sequence length
 assert total_batch_size % (B * T * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * T * ddp_world_size"
 grad_accum_steps = total_batch_size // (B * T * ddp_world_size)
