@@ -356,20 +356,10 @@ with open(log_file, "a") as f: # open for writing to clear the file
     pass
 
 # create model
-<<<<<<< HEAD
 model = GPT(GPTConfig(vocab_size=50304))
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
-=======
-checkpoint_files = glob.glob(os.path.join(log_dir, "model_*.pt"))
-if checkpoint_files:
-    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
-    model = GPT.from_checkpoint(latest_checkpoint)
-else:
-    model = GPT(GPTConfig(vocab_size=50304))
 
-model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
->>>>>>> dff46a2b6fc49c13a5b8d9d73c84f7d2988f51ad
 model.to(device)
 use_compile = False # torch.compile interferes with HellaSwag eval and Generation. TODO fix
 if use_compile:
@@ -398,7 +388,6 @@ def get_lr(it):
 # optimize!
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type=device_type)
 
-<<<<<<< HEAD
 # Try to start training from latest checkpoint if it exists
 checkpoint_files = glob.glob(os.path.join(log_dir, "model_*.pt"))
 if checkpoint_files:
@@ -407,8 +396,6 @@ if checkpoint_files:
     checkpoint = torch.load(latest_checkpoint)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-=======
->>>>>>> dff46a2b6fc49c13a5b8d9d73c84f7d2988f51ad
 
 for step in range(max_steps):
     t0 = time.time()
