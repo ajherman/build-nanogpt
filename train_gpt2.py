@@ -206,6 +206,12 @@ class GPT(nn.Module):
             print(f"using fused AdamW: {use_fused}")
         optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
         return optimizer
+    def from_checkpoint(cls, checkpoint_path):
+        """Loads a GPT model from a checkpoint file"""
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        config = checkpoint['config']
+        model = GPT(config)
+        model.load_state_dict(checkpoint['model'])
 
 # -----------------------------------------------------------------------------
 import tiktoken
@@ -289,6 +295,7 @@ def get_most_likely_row(tokens, mask, logits):
 # run the training loop
 from torch.distributed import init_process_group, destroy_process_group
 from torch.nn.parallel import DistributedDataParallel as DDP
+import glob
 import torch.distributed as dist
 
 # set up DDP (distributed data parallel).
@@ -341,8 +348,16 @@ val_loader = DataLoaderLite(B=B, T=T, process_rank=ddp_rank, num_processes=ddp_w
 
 torch.set_float32_matmul_precision('high')
 
+# create the log directory we will write checkpoints to and log to
+log_dir = "log"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, f"log.txt")
+with open(log_file, "a") as f: # open for writing to clear the file
+    pass
+
 # create model
 model = GPT(GPTConfig(vocab_size=50304))
+
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 model.to(device)
 use_compile = False # torch.compile interferes with HellaSwag eval and Generation. TODO fix
@@ -372,12 +387,14 @@ def get_lr(it):
 # optimize!
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type=device_type)
 
-# create the log directory we will write checkpoints to and log to
-log_dir = "log"
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, f"log.txt")
-with open(log_file, "w") as f: # open for writing to clear the file
-    pass
+# Try to start training from latest checkpoint if it exists
+checkpoint_files = glob.glob(os.path.join(log_dir, "model_*.pt"))
+if checkpoint_files:
+    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
+
+    checkpoint = torch.load(latest_checkpoint)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 for step in range(max_steps):
     t0 = time.time()
@@ -408,6 +425,7 @@ for step in range(max_steps):
                 checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
                 checkpoint = {
                     'model': raw_model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
                     'config': raw_model.config,
                     'step': step,
                     'val_loss': val_loss_accum.item()
