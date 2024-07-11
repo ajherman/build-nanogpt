@@ -24,3 +24,5 @@ using ddp and torchrun
 
 turning off require_grad_sync allows different gpus to remain unsynchronized, which is good i guess
 
+openwebtext is an attempt to reproduce webtext, the dataset used to train gpt2
+
