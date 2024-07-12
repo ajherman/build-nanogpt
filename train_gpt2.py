@@ -206,6 +206,7 @@ class GPT(nn.Module):
             print(f"using fused AdamW: {use_fused}")
         optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
         return optimizer
+
     def from_checkpoint(cls, checkpoint_path):
         """Loads a GPT model from a checkpoint file"""
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
@@ -396,8 +397,9 @@ if checkpoint_files:
     checkpoint = torch.load(latest_checkpoint)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    start_step = checkpoint['step']
 
-for step in range(max_steps):
+for step in range(start_step,max_steps):
     t0 = time.time()
     last_step = (step == max_steps - 1)
 
@@ -429,7 +431,8 @@ for step in range(max_steps):
                     'optimizer': optimizer.state_dict(),
                     'config': raw_model.config,
                     'step': step,
-                    'val_loss': val_loss_accum.item()
+                    'val_loss': val_loss_accum.item(),
+                    'step': step
                 }
                 # you might also want to add optimizer.state_dict() and
                 # rng seeds etc., if you wanted to more exactly resume training
