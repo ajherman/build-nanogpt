@@ -395,9 +395,9 @@ if checkpoint_files:
     latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
 
     checkpoint = torch.load(latest_checkpoint)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     start_step = checkpoint['step']
+    raw_model.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
 
 for step in range(start_step,max_steps):
     t0 = time.time()
