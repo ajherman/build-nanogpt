@@ -388,6 +388,7 @@ def get_lr(it):
 
 # optimize!
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type=device_type)
+start_step = 0 # This is where to start by default (i.e. if there is no checkpoint)
 
 # Try to start training from latest checkpoint if it exists
 checkpoint_files = glob.glob(os.path.join(log_dir, "model_*.pt"))
