@@ -13,6 +13,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--micro_batch_size', type=int, default=64, help='How many samples to run on a single gpu at a time')
 parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interval for saving model checkpoints')
+parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
 args = parser.parse_args()
 
 class CausalSelfAttention(nn.Module):
@@ -49,14 +50,18 @@ class MLP(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd)
-        self.gelu    = nn.GELU(approximate='tanh')
-        self.c_proj  = nn.Linear(4 * config.n_embd, config.n_embd)
+        self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
+        self.gelu = nn.GELU(approximate='tanh')
+        self.relu = nn.ReLU()
+        self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
         self.c_proj.NANOGPT_SCALE_INIT = 1
 
     def forward(self, x):
         x = self.c_fc(x)
-        x = self.gelu(x)
+
+        # x = self.gelu(x)
+        x = self.relu(x)
+        
         x = self.c_proj(x)
         return x
 
@@ -350,7 +355,7 @@ val_loader = DataLoaderLite(B=B, T=T, process_rank=ddp_rank, num_processes=ddp_w
 torch.set_float32_matmul_precision('high')
 
 # create the log directory we will write checkpoints to and log to
-log_dir = "log"
+log_dir = args.output_dir
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, f"log.txt")
 with open(log_file, "a") as f: # open for writing to clear the file
