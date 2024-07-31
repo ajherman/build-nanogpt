@@ -418,6 +418,7 @@ if checkpoint_files:
 elif args.init_weights is not None: 
     # This if for finetuning a model starting from pretrained weights
     checkpoint = torch.load(args.init_weights)
+    start_step = checkpoint['step']
     raw_model.load_state_dict(checkpoint['model'])
     # optimizer.load_state_dict(checkpoint['optimizer']) # I don't think we want to reset the optimizer
 
