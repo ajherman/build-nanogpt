@@ -60,7 +60,8 @@ class MLP(nn.Module):
         x = self.c_fc(x)
 
         # x = self.gelu(x)
-        x = self.relu(x)
+        # x = self.relu(x)
+        x = torch.clamp(x, min=0,max=1)
         
         x = self.c_proj(x)
         return x
