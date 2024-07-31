@@ -15,6 +15,7 @@ parser.add_argument('--micro_batch_size', type=int, default=64, help='How many s
 parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interval for saving model checkpoints')
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
+parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
 args = parser.parse_args()
 
 class CausalSelfAttention(nn.Module):
@@ -405,13 +406,20 @@ start_step = 0 # This is where to start by default (i.e. if there is no checkpoi
 
 # Try to start training from latest checkpoint if it exists
 checkpoint_files = glob.glob(os.path.join(log_dir, "model_*.pt"))
-if checkpoint_files:
-    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
 
+if checkpoint_files: 
+    # If there are already checkpoint files in the output directory, 
+    # continue training (or finetuning a model from a checkpoint)
+    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
     checkpoint = torch.load(latest_checkpoint)
     start_step = checkpoint['step']
     raw_model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
+elif args.init_weights is not None: 
+    # This if for finetuning a model starting from pretrained weights
+    checkpoint = torch.load(args.init_weights)
+    raw_model.load_state_dict(checkpoint['model'])
+    # optimizer.load_state_dict(checkpoint['optimizer']) # I don't think we want to reset the optimizer
 
 for step in range(start_step,max_steps):
     t0 = time.time()
