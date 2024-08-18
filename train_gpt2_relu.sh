@@ -3,6 +3,7 @@
 #SBATCH --time 10:00:00
 #SBATCH -N 1           
 #SBATCH -p shared-redstone
+#SBATCH -w cn1
 #SBATCH -C gpu_count:4
 #SBATCH --mem=0
 #SBATCH --exclusive
@@ -35,9 +36,9 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 #srun -o tiny_test.out --ntasks=1 -N 1 torchrun --nproc_per_node 2 gpt2_train.py --output_dir /tmp/test-clm --num_train_epochs 100 --config_file config.json --per_device_train_batch_size 12 --mixed_precision --save_steps 2000 &
 
-# srun -o results.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 &
+#srun -o original.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --act_fun gelu --output_dir original &
 
-srun -o relu.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --output_dir relu &
+srun -o relu.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --act_fun relu --output_dir relu &
 
-# srun -o clip.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --output_dir clip &
+#srun -o clip.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --act_fun clip --output_dir clip &
 
