@@ -35,9 +35,17 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 #srun -o tiny_test.out --ntasks=1 -N 1 torchrun --nproc_per_node 2 gpt2_train.py --output_dir /tmp/test-clm --num_train_epochs 100 --config_file config.json --per_device_train_batch_size 12 --mixed_precision --save_steps 2000 &
 
+<<<<<<< HEAD
 srun -o original.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --output_dir original &
+=======
+srun -o original.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --act_fun gelu --output_dir original &
+>>>>>>> bce50adc0d2756dabe8b6137addbb91d1f1cdfe9
 
 #srun -o relu.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --output_dir relu &
 
+<<<<<<< HEAD
 # srun -o clip.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --output_dir clip &
+=======
+# srun -o clip.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --act_fun clip --output_dir clip &
+>>>>>>> bce50adc0d2756dabe8b6137addbb91d1f1cdfe9
 

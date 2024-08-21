@@ -14,6 +14,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--micro_batch_size', type=int, default=64, help='How many samples to run on a single gpu at a time')
 parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interval for saving model checkpoints')
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
+parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
+parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
 args = parser.parse_args()
 
 class CausalSelfAttention(nn.Module):
@@ -55,13 +57,16 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
         self.c_proj.NANOGPT_SCALE_INIT = 1
-
+        self.config = config
     def forward(self, x):
         x = self.c_fc(x)
 
-        # x = self.gelu(x)
-        # x = self.relu(x)
-        x = torch.clamp(x, min=0,max=1)
+        if self.config.act_fun == 'gelu':
+            x = self.gelu(x)
+        elif self.config.act_fun == 'relu':
+            x = self.relu(x)
+        elif self.config.act_fun == 'clip':
+            x = torch.clamp(x, min=0,max=1)
         
         x = self.c_proj(x)
         return x
@@ -87,6 +92,7 @@ class GPTConfig:
     n_layer: int = 12 # number of layers
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
+    act_fun: str = 'gelu' # activation function
 
 class GPT(nn.Module):
 
@@ -363,7 +369,9 @@ with open(log_file, "a") as f: # open for writing to clear the file
     pass
 
 # create model
-model = GPT(GPTConfig(vocab_size=50304))
+vocab_size = 50304
+act_fun = args.act_fun
+model = GPT(GPTConfig(vocab_size=vocab_size, act_fun=act_fun))
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 
@@ -398,13 +406,21 @@ start_step = 0 # This is where to start by default (i.e. if there is no checkpoi
 
 # Try to start training from latest checkpoint if it exists
 checkpoint_files = glob.glob(os.path.join(log_dir, "model_*.pt"))
-if checkpoint_files:
-    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
 
+if checkpoint_files: 
+    # If there are already checkpoint files in the output directory, 
+    # continue training (or finetuning a model from a checkpoint)
+    latest_checkpoint = max(checkpoint_files, key=os.path.getctime)
     checkpoint = torch.load(latest_checkpoint)
     start_step = checkpoint['step']
     raw_model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
+elif args.init_weights is not None: 
+    # This if for finetuning a model starting from pretrained weights
+    checkpoint = torch.load(args.init_weights)
+    start_step = checkpoint['step']
+    raw_model.load_state_dict(checkpoint['model'])
+    # optimizer.load_state_dict(checkpoint['optimizer']) # I don't think we want to reset the optimizer
 
 for step in range(start_step,max_steps):
     t0 = time.time()
