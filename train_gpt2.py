@@ -8,6 +8,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 from hellaswag import render_example, iterate_examples
 import argparse 
+from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import DataCollatorForLanguageModeling
+from datasets import load_dataset
 # -----------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser()
@@ -17,6 +20,28 @@ parser.add_argument('--output_dir', type=str, default='log', help='Output direct
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
 args = parser.parse_args()
+
+test_wiki = True
+
+if test_wiki:
+    wiki_dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='validation')
+
+    # config = GPT2Config.from_pretrained('gpt2')
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    tokenizer.pad_token = tokenizer.eos_token # Add pad token
+
+    # Create a data loader object
+    wiki_loader = torch.utils.data.DataLoader(wiki_dataset, batch_size=64, shuffle=True)
+    # # Sample from the data loader
+    # for i in range(10):
+    #     sample = next(iter(wiki_loader))
+    #     # print(sample['text']) 
+    #     tokens = tokenizer(sample['text'], truncation=True, max_length=1024, padding="max_length", return_tensors='pt')
+    #     print(tokens['input_ids'].shape)
+
+    # assert(0)
+
+
 
 class CausalSelfAttention(nn.Module):
 
@@ -493,6 +518,49 @@ for step in range(start_step,max_steps):
             print(f"HellaSwag accuracy: {num_correct_norm}/{num_total}={acc_norm:.4f}")
             with open(log_file, "a") as f:
                 f.write(f"{step} hella {acc_norm:.4f}\n")
+
+    if test_wiki:
+        # once in a while evaluate on wiki103
+        if (step % 250 == 0 or last_step) and (not use_compile):
+            num_correct_norm = 0
+            num_total = 0
+            for i, example in enumerate(iter(wiki_loader)):
+                if i>1000:
+                    break
+                tokens = tokenizer(example['text'], truncation=True, max_length=1024, padding="max_length", return_tensors='pt')
+                x,y = tokens['input_ids'][:-1], tokens['input_ids'][1:]
+                x, y = x.to(device), y.to(device)
+
+                # only process examples where i % ddp_world_size == ddp_rank
+                if i % ddp_world_size != ddp_rank:
+                    continue
+
+                # get the logits
+                with torch.no_grad():
+                    with torch.autocast(device_type=device_type, dtype=torch.bfloat16):
+                        logits = model(x)
+
+                # Get most likely
+                print(logits.shape)
+                # Get num correct using argmax
+                pred_norm = torch.argmax(logits, dim=-1)
+                label = y
+                num_total += 64
+                num_correct_norm += int(pred_norm == label)
+            # reduce the stats across all processes
+            if ddp:
+                num_total = torch.tensor(num_total, dtype=torch.long, device=device)
+                num_correct_norm = torch.tensor(num_correct_norm, dtype=torch.long, device=device)
+                dist.all_reduce(num_total, op=dist.ReduceOp.SUM)
+                dist.all_reduce(num_correct_norm, op=dist.ReduceOp.SUM)
+                num_total = num_total.item()
+                num_correct_norm = num_correct_norm.item()
+            acc_norm = num_correct_norm / num_total
+            if master_process:
+                print(f"Wikitext-103 accuracy: {num_correct_norm}/{num_total}={acc_norm:.4f}")
+                with open(log_file, "a") as f:
+                    f.write(f"{step} wiki103 {acc_norm:.4f}\n")
+        
 
     # once in a while generate from the model (except step 0, which is noise)
     if ((step > 0 and step % 250 == 0) or last_step) and (not use_compile):
