@@ -21,7 +21,7 @@ parser.add_argument('--act_fun', type=str, default='gelu', help='Activation func
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
 args = parser.parse_args()
 
-test_wiki = True
+test_wiki = False
 
 if test_wiki:
     wiki_dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='validation')
