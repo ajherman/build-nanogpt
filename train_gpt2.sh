@@ -29,6 +29,6 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 # srun -o clip.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --act_fun clip --output_dir clip &
 
-srun -o nonorm.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --block_type nonorm --output_dir nonorm &
+srun -o nonorm.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --block_type no_mlp_norm --output_dir nonorm &
 
 # srun -o keepnorm.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --block_type keep_normalized --output_dir keepnorm &

@@ -105,7 +105,8 @@ class Block(nn.Module):
         self.config = config
         self.ln_1 = nn.LayerNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.n_embd)
+        if not config.block_type == 'no_mlp_norm':
+            self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
         
     def forward(self, x):
@@ -113,9 +114,9 @@ class Block(nn.Module):
         if self.config.block_type == 'norm':
             x = x + self.attn(self.ln_1(x))
             x = x + self.mlp(self.ln_2(x))
-        elif self.config.block_type == 'nonorm':
+        elif self.config.block_type == 'no_mlp_norm':
             x = x + self.attn(self.ln_1(x))
-            x = x + self.mlp(self.ln_2(x))
+            x = x + self.mlp(x)
         elif self.config.block_type == 'learnable':
             penalty += torch.norm(x)
             x = x + self.attn(x)
