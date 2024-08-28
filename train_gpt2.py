@@ -140,6 +140,7 @@ class GPTConfig:
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
     act_fun: str = 'gelu' # activation function
+    block_type: str = 'norm' # block type
 
 class GPT(nn.Module):
 
