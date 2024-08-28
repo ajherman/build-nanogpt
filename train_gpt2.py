@@ -127,16 +127,6 @@ class Block(nn.Module):
             x = self.ln_2(x)
             x = x + self.mlp(x)
         return x
-class NoNormBlock(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.attn = CausalSelfAttention(config)
-        self.mlp = MLP(config)
-
-    def forward(self, x):
-        x = x + self.attn(x)
-        x = x + self.mlp(x)
-        return x
 @dataclass
 class GPTConfig:
     block_size: int = 1024 # max sequence length
