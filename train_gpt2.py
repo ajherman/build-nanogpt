@@ -19,6 +19,8 @@ parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interv
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
+parser.add_argument('--block_type', type=str, default='norm', help='Type of block to use')
+parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
 test_wiki = False
@@ -100,16 +102,36 @@ class Block(nn.Module):
 
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.ln_1 = nn.LayerNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
         self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
+        
+    def forward(self, x):
+        penalty = 0
+        if self.config.block_type == 'norm':
+            x = x + self.attn(self.ln_1(x))
+            x = x + self.mlp(self.ln_2(x))
+        elif self.config.block_type == 'nonorm':
+            x = x + self.attn(self.ln_1(x))
+            x = x + self.mlp(self.ln_2(x))
+        elif self.config.block_type == 'learnable':
+            penalty += torch.norm(x)
+            x = x + self.attn(x)
+            penalty += torch.norm(x)
+            x = x + self.mlp(x)
+        return x, penalty
+class NoNormBlock(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.attn = CausalSelfAttention(config)
+        self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+        x = x + self.attn(x)
+        x = x + self.mlp(x)
         return x
-
 @dataclass
 class GPTConfig:
     block_size: int = 1024 # max sequence length
@@ -396,7 +418,8 @@ with open(log_file, "a") as f: # open for writing to clear the file
 # create model
 vocab_size = 50304
 act_fun = args.act_fun
-model = GPT(GPTConfig(vocab_size=vocab_size, act_fun=act_fun))
+block_type = args.block_type
+model = GPT(GPTConfig(vocab_size=vocab_size, act_fun=act_fun, block_type=block_type))
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 
