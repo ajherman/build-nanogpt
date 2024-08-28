@@ -115,7 +115,7 @@ class Block(nn.Module):
             x = x + self.mlp(self.ln_2(x))
         elif self.config.block_type == 'nonorm':
             x = x + self.attn(self.ln_1(x))
-            x = x + self.mlp(x)
+            x = x + self.mlp(self.ln_2(x))
         elif self.config.block_type == 'learnable':
             penalty += torch.norm(x)
             x = x + self.attn(x)
