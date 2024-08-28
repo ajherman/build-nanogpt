@@ -122,9 +122,9 @@ class Block(nn.Module):
             penalty += torch.norm(x)
             x = x + self.mlp(x)
         elif self.config.block_type == 'keep_normalized':
-            x = self.ln1(x)
+            x = self.ln_1(x)
             x = x + self.attn(x)
-            x = self.ln2(x)
+            x = self.ln_2(x)
             x = x + self.mlp(x)
         return x
 class NoNormBlock(nn.Module):
