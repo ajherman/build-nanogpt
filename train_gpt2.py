@@ -121,7 +121,7 @@ class Block(nn.Module):
             x = x + self.attn(x)
             penalty += torch.norm(x)
             x = x + self.mlp(x)
-        return x, penalty
+        return x
 class NoNormBlock(nn.Module):
     def __init__(self, config):
         super().__init__()
