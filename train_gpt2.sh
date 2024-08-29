@@ -33,4 +33,4 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 # srun -o keepnorm.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --block_type keep_normalized --output_dir keepnorm &
 
-srun -o rmsnorm.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --norm_type rms --output_dir rmsrnorm &
+srun -o rmsnorm.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --norm_type rms --output_dir rmsnorm &
