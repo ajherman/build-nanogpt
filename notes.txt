@@ -26,3 +26,18 @@ turning off require_grad_sync allows different gpus to remain unsynchronized, wh
 
 openwebtext is an attempt to reproduce webtext, the dataset used to train gpt2
 
+=======================================================================================
+
+Experiments/ideas
+
+Since we're generally trying to simplify things, it is worth noting that the centering step in LayerNorm is 
+equivalent to pre-multiplying each matrix (K,Q,V and the first layer of the MLP) by I-11^T/D, which in 
+turn is equivalent to subtracting the mean from each row of these matrices. We can either do that explictily,
+or not do it and thing of this as something that is optionally learnable. That leaves us with RMSNorm, which 
+should be basically just as good. So, the first experiment is just to completely replace LayerNorm with RMSNorm.
+
+
+
+
+
+

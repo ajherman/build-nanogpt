@@ -20,6 +20,7 @@ parser.add_argument('--output_dir', type=str, default='log', help='Output direct
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
 parser.add_argument('--block_type', type=str, default='norm', help='Type of block to use')
+parser.add_argument('--norm_type', type=str, default='layer', help='Type of normalization to use')
 parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
@@ -103,10 +104,16 @@ class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.ln_1 = nn.LayerNorm(config.n_embd)
+        if self.config.norm_type == 'layer':
+            self.ln_1 = nn.LayerNorm(config.n_embd)
+        elif self.config.norm_type == 'rms':
+            self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
         if not config.block_type == 'no_mlp_norm':
-            self.ln_2 = nn.LayerNorm(config.n_embd)
+            if self.config.norm_type == 'layer':
+                self.ln_2 = nn.LayerNorm(config.n_embd)
+            elif self.config.norm_type == 'rms':
+                self.ln_2 = nn.RMSNorm(config.n_embd)
         self.mlp = MLP(config)
         
     def forward(self, x):
@@ -137,6 +144,7 @@ class GPTConfig:
     n_embd: int = 768 # embedding dimension
     act_fun: str = 'gelu' # activation function
     block_type: str = 'norm' # block type
+    norm_type: str = 'layer' # norm type
 
 class GPT(nn.Module):
 
@@ -416,7 +424,8 @@ with open(log_file, "a") as f: # open for writing to clear the file
 vocab_size = 50304
 act_fun = args.act_fun
 block_type = args.block_type
-model = GPT(GPTConfig(vocab_size=vocab_size, act_fun=act_fun, block_type=block_type))
+norm_type = args.norm_type
+model = GPT(GPTConfig(vocab_size=vocab_size, act_fun=act_fun, block_type=block_type, norm_type=norm_type))
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 
