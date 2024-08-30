@@ -25,6 +25,8 @@ parser.add_argument('--attn_norm_type', type=str, default='layer', help='Type of
 parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip connection in MLP')
 parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip connection in attention')
 parser.add_argument('--rotation_mlp', action='store_true', help='Use rotation MLP')
+parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
+parser.add_argument('--mlp_renormalize', action='store_true', help='Renormalize MLP output')
 parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
@@ -87,24 +89,41 @@ class MLP(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd)
+        self.config = config
+
+        if config.rotation_mlp:
+            self.c_fc_param = nn.Parameter(torch.randn(self.config.n_embd, 4*self.config.n_embd))
+            self.c_proj_param = nn.Parameter(torch.randn(4*self.config.n_embd, self.config.n_embd))
+            U,_,V = torch.svd_lowrank(self.c_proj_param@self.c_fc_param)
+
+            self.c_fc = nn.Linear(self.config.n_embd, 4 * self.config.n_embd, bias = not self.config.mlp_no_bias)
+            self.c_proj = nn.Linear(4*self.config.n_embd, self.config.n_embd, bias = not self.config.mlp_no_bias)
+        else:   
+            self.c_fc = nn.Linear(self.config.n_embd, 4*self.config.n_embd, bias = not self.config.mlp_no_bias)
+            self.c_proj = nn.Linear(4*self.config.n_embd, self.config.n_embd, bias = not self.config.mlp_no_bias)
+
         self.gelu = nn.GELU(approximate='tanh')
         self.relu = nn.ReLU()
-        self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
-        self.config = config
 
         # Scaling factors for MLP initializations (s.d. of elements)
         if self.config.rotation_mlp: 
             # In this case we don't use a skip connection and instead try to get
             # the MLP to preserve vector lengths approximately
-            self.c_fc.SD_INIT = 1./(2*config.n_embd**2)**0.25
-            self.c_proj.SD_INIT = 1./(2*config.n_embd**2)**0.25
+            self.c_fc.SD_INIT = 1./(2*self.config.n_embd**2)**0.25
+            self.c_proj.SD_INIT = 1./(2*self.config.n_embd**2)**0.25
         else:
             # This is the default used in the original script
             self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
             self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+        
+        if self.config.mlp_renormalize:
+            self.ln = nn.LayerNorm(self.config.n_embd)
 
     def forward(self, x):
+        # if self.config.rotation_mlp:
+        #     U,_,V = torch.svd_lowrank(self.c_proj_param@self.c_fc_param)
+        #     self
+
         x = self.c_fc(x)
 
         if self.config.act_fun == 'gelu':
@@ -115,6 +134,11 @@ class MLP(nn.Module):
             x = torch.clamp(x, min=0,max=1)
         
         x = self.c_proj(x)
+
+        if self.config.mlp_renormalize:
+            assert(self.config.mlp_no_skip) # I don't think we want to renormalize with skip connections
+            x = self.ln(x)
+
         return x
 
 class Block(nn.Module):
@@ -170,6 +194,8 @@ class GPTConfig:
     mlp_no_skip: bool = False # use no skip connection in MLP
     attn_no_skip: bool = False
     rotation_mlp: bool = False # use rotation MLP
+    mlp_no_bias: bool = False # use no bias in MLP
+    mlp_renormalize: bool = False
 
 class GPT(nn.Module):
 
@@ -456,7 +482,10 @@ model = GPT(GPTConfig(vocab_size=vocab_size,
                     attn_norm_type=args.attn_norm_type,
                     mlp_no_skip=args.mlp_no_skip,
                     attn_no_skip=args.attn_no_skip,
-                    rotation_mlp=args.rotation_mlp))
+                    rotation_mlp=args.rotation_mlp,
+                    mlp_no_bias=args.mlp_no_bias,
+                    mlp_renormalize=args.mlp_renormalize))
+                    
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 
