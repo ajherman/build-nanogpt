@@ -19,8 +19,12 @@ parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interv
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
-parser.add_argument('--block_type', type=str, default='norm', help='Type of block to use')
-parser.add_argument('--norm_type', type=str, default='layer', help='Type of normalization to use')
+# parser.add_argument('--block_type', type=str, default='norm', help='Type of block to use')
+parser.add_argument('--mlp_norm_type', type=str, default='layer', help='Type of normalization to use')
+parser.add_argument('--attn_norm_type', type=str, default='layer', help='Type of normalization to use')
+parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip connection in MLP')
+parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip connection in attention')
+parser.add_argument('--rotation_mlp', action='store_true', help='Use rotation MLP')
 parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
@@ -55,7 +59,10 @@ class CausalSelfAttention(nn.Module):
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         # output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
-        self.c_proj.NANOGPT_SCALE_INIT = 1
+        self.config = config
+
+        self.c_attn.SD_INIT = 0.02
+        self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
         # regularization
         self.n_head = config.n_head
         self.n_embd = config.n_embd
@@ -84,8 +91,19 @@ class MLP(nn.Module):
         self.gelu = nn.GELU(approximate='tanh')
         self.relu = nn.ReLU()
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd)
-        self.c_proj.NANOGPT_SCALE_INIT = 1
         self.config = config
+
+        # Scaling factors for MLP initializations (s.d. of elements)
+        if self.config.rotation_mlp: 
+            # In this case we don't use a skip connection and instead try to get
+            # the MLP to preserve vector lengths approximately
+            self.c_fc.SD_INIT = 1./(2*config.n_embd**2)**0.25
+            self.c_proj.SD_INIT = 1./(2*config.n_embd**2)**0.25
+        else:
+            # This is the default used in the original script
+            self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+            self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+
     def forward(self, x):
         x = self.c_fc(x)
 
@@ -104,36 +122,39 @@ class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        if self.config.norm_type == 'layer':
+        if self.config.attn_norm_type == 'layer':
             self.ln_1 = nn.LayerNorm(config.n_embd)
-        elif self.config.norm_type == 'rms':
+        elif self.config.attn_norm_type == 'rms':
             self.ln_1 = nn.RMSNorm(config.n_embd)
+        elif self.config.attn_norm_type == 'none':
+            self.ln_1 = nn.Identity()
+
         self.attn = CausalSelfAttention(config)
-        if not config.block_type == 'no_mlp_norm':
-            if self.config.norm_type == 'layer':
-                self.ln_2 = nn.LayerNorm(config.n_embd)
-            elif self.config.norm_type == 'rms':
-                self.ln_2 = nn.RMSNorm(config.n_embd)
+
+        if self.config.mlp_norm_type == 'layer':
+            self.ln_2 = nn.LayerNorm(config.n_embd)
+        elif self.config.mlp_norm_type == 'rms':
+            self.ln_2 = nn.RMSNorm(config.n_embd)
+        elif self.config.mlp_norm_type == 'none':
+            self.ln_2 = nn.Identity()
+
         self.mlp = MLP(config)
         
     def forward(self, x):
-        penalty = 0
-        if self.config.block_type == 'norm':
+        penalty = 0 # For weight normalization penalty
+
+        # Self attention
+        if self.config.attn_no_skip:
+            x = self.attn(self.ln_1(x))
+        else:
             x = x + self.attn(self.ln_1(x))
+
+        # MLP
+        if self.config.mlp_no_skip:
+            x = self.mlp(self.ln_2(x))
+        else:
             x = x + self.mlp(self.ln_2(x))
-        elif self.config.block_type == 'no_mlp_norm':
-            x = x + self.attn(self.ln_1(x))
-            x = x + self.mlp(x)
-        elif self.config.block_type == 'learnable':
-            penalty += torch.norm(x)
-            x = x + self.attn(x)
-            penalty += torch.norm(x)
-            x = x + self.mlp(x)
-        elif self.config.block_type == 'keep_normalized':
-            x = self.ln_1(x)
-            x = x + self.attn(x)
-            x = self.ln_2(x)
-            x = x + self.mlp(x)
+
         return x
 @dataclass
 class GPTConfig:
@@ -143,8 +164,12 @@ class GPTConfig:
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
     act_fun: str = 'gelu' # activation function
-    block_type: str = 'norm' # block type
-    norm_type: str = 'layer' # norm type
+    # block_type: str = 'norm' # block type
+    mlp_norm_type: str = 'layer' # norm type
+    attn_norm_type: str = 'layer'
+    mlp_no_skip: bool = False # use no skip connection in MLP
+    attn_no_skip: bool = False
+    rotation_mlp: bool = False # use rotation MLP
 
 class GPT(nn.Module):
 
@@ -168,9 +193,8 @@ class GPT(nn.Module):
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            std = 0.02
-            if hasattr(module, 'NANOGPT_SCALE_INIT'):
-                std *= (2 * self.config.n_layer) ** -0.5
+            if hasattr(module, 'SD_INIT'): # Each module specifies its own std deviation
+                std = module.SD_INIT
             torch.nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
@@ -422,10 +446,17 @@ with open(log_file, "a") as f: # open for writing to clear the file
 
 # create model
 vocab_size = 50304
-act_fun = args.act_fun
-block_type = args.block_type
-norm_type = args.norm_type
-model = GPT(GPTConfig(vocab_size=vocab_size, act_fun=act_fun, block_type=block_type, norm_type=norm_type))
+# act_fun = args.act_fun
+# block_type = args.block_type
+# norm_type = args.norm_type
+# rotation_mlp = args.rotation_mlp
+model = GPT(GPTConfig(vocab_size=vocab_size, 
+                    act_fun=args.act_fun, 
+                    mlp_norm_type=args.mlp_norm_type, 
+                    attn_norm_type=args.attn_norm_type,
+                    mlp_no_skip=args.mlp_no_skip,
+                    attn_no_skip=args.attn_no_skip,
+                    rotation_mlp=args.rotation_mlp))
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 
