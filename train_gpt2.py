@@ -220,8 +220,8 @@ class GPT(nn.Module):
                 std = module.SD_INIT
                 torch.nn.init.normal_(module.c_fc.weight, mean=0.0, std=std)
                 module.c_fc.weight = nn.Parameter(module.c_fc.weight.t())
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+            # if module.bias is not None:
+            #     torch.nn.init.zeros_(module.bias)
         if isinstance(module, nn.Linear):
             if hasattr(module, 'SD_INIT'): # Each module specifies its own std deviation
                 std = module.SD_INIT
