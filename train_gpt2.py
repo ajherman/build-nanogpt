@@ -136,7 +136,7 @@ class MLP(nn.Module):
         x = self.c_proj(x)
 
         if self.config.mlp_renormalize:
-            assert(self.config.mlp_no_skip) # I don't think we want to renormalize with skip connections
+            # assert(self.config.mlp_no_skip) # I don't think we want to renormalize with skip connections
             x = self.ln(x)
 
         return x
