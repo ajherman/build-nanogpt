@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=main
-#SBATCH --time 0:15:00
+#SBATCH --time 0:30:00
 #SBATCH -N 1           
 #SBATCH -p shared-redstone
 #SBATCH -C gpu_count:4
