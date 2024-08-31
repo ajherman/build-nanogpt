@@ -1,13 +1,13 @@
 #!/bin/bash -l
 #SBATCH --job-name=main
-#SBATCH --time 2:00:00
+#SBATCH --time 0:15:00
 #SBATCH -N 1           
 #SBATCH -p shared-redstone
-#SBATCH --gres=gpu:4
+#SBATCH -C gpu_count:4
 #SBATCH --mem=0
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=16
-#SBATCH --array=1-2%1  # 100 jobs in the array, 1 running at a time
+#SBATCH --array=1-5%1  # 100 jobs in the array, 1 running at a time
 
 module load miniconda3
 
@@ -37,7 +37,7 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 # srun -o nobias.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --output_dir nobias 
 
-srun --ntasks=1 -N 1 bash -c "echo 'Running on node:' $(hostname); nvidia-smi; torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize"
+# srun --ntasks=1 -N 1 bash -c "echo 'Running on node:' $(hostname); nvidia-smi; torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize"
 
-# srun -o renormalize.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --mlp_renormalize --output_dir renormalize & 
+srun -o renormalize.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize" 
 
