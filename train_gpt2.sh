@@ -37,11 +37,6 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 # srun -o nobias.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --output_dir nobias 
 
-echo "Running on node: $(hostname)"
-nvidia-smi
-python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
-python -c "import sys; print('Python executable:', sys.executable)"
-python -c "import sys; print('Python path:', sys.path)"
 
-srun -o renormalize.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --mlp_renormalize --output_dir renormalize 
+srun -o renormalize.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --mlp_renormalize --output_dir renormalize & 
 
