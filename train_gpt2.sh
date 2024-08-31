@@ -37,6 +37,7 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 # srun -o nobias.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --output_dir nobias 
 
+srun --ntasks=1 -N 1 bash -c "echo 'Running on node:' $(hostname); nvidia-smi; torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize"
 
-srun -o renormalize.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --mlp_renormalize --output_dir renormalize & 
+# srun -o renormalize.out --ntasks=1 -N 1 torchrun --nproc_per_node 4 train_gpt2.py --micro_batch_size 16 --mlp_no_bias --mlp_renormalize --output_dir renormalize & 
 
