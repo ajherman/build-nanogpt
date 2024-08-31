@@ -106,11 +106,8 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
 
         # Scaling factors for MLP initializations (s.d. of elements)
-        if self.config.rotation_mlp: 
-            # In this case we don't use a skip connection and instead try to get
-            # the MLP to preserve vector lengths approximately
-            self.c_fc.SD_INIT = 1./(2*self.config.n_embd**2)**0.25
-            self.c_proj.SD_INIT = 1./(2*self.config.n_embd**2)**0.25
+        if self.config.mlp_no_skip:
+            self.SD_INIT = 1./(2*self.config.n_embd)**0.5
         else:
             # This is the default used in the original script
             self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
@@ -218,6 +215,13 @@ class GPT(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
+        if isinstance(module,MLP):
+            if hasattr(module, 'SD_INIT'):
+                std = module.SD_INIT
+                torch.nn.init.normal_(module.c_fc.weight, mean=0.0, std=std)
+                module.c_fc.weight = module.c_fc.weight.t()
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
         if isinstance(module, nn.Linear):
             if hasattr(module, 'SD_INIT'): # Each module specifies its own std deviation
                 std = module.SD_INIT
@@ -500,7 +504,7 @@ raw_model = model.module if ddp else model # always contains the "raw" unwrapped
 max_lr = 6e-4
 min_lr = max_lr * 0.1
 warmup_steps = 715
-max_steps = 2*19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+max_steps = 19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 def get_lr(it):
     # 1) linear warmup for warmup_iters steps
     if it < warmup_steps:
