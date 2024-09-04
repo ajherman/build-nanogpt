@@ -2,12 +2,12 @@
 #SBATCH --job-name=main
 #SBATCH --time 2:00:00
 #SBATCH -N 1           
-#SBATCH -p shared-redstone
+#SBATCH -p shared-gpu
 #SBATCH -C gpu_count:4
 #SBATCH --mem=0
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=16
-#SBATCH --array=1-100%1  # 100 jobs in the array, 1 running at a time
+#SBATCH --array=1-10%1  # 100 jobs in the array, 1 running at a time
 
 module load miniconda3
 
