@@ -7,7 +7,7 @@
 #SBATCH --mem=0
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=16
-#SBATCH --array=1-10%1  # 100 jobs in the array, 1 running at a time
+#SBATCH --array=1-20%1  # 100 jobs in the array, 1 running at a time
 
 module load miniconda3
 
