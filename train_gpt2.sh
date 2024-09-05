@@ -2,7 +2,7 @@
 #SBATCH --job-name=main
 #SBATCH --time 2:00:00
 #SBATCH -N 1           
-#SBATCH -p shared-gpu
+#SBATCH -p shared-redstone
 #SBATCH -C gpu_count:4
 #SBATCH --mem=0
 #SBATCH --exclusive
@@ -45,7 +45,7 @@ srun -o original.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_
 
 srun -o nobias.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --output_dir=nobias" 
 
-srun -o renormalize_only.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_norm_type none --mlp_renormalize --output_dir=renormalize_only" 
+srun -o renormalize_only.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_norm_type=none --mlp_renormalize --output_dir=renormalize_only" 
 
 srun -o rmsnorm.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_norm_type=rms --output_dir=rmsnorm" 
 

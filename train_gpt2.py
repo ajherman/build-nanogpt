@@ -581,7 +581,8 @@ for step in range(start_step,max_steps):
                 if os.path.exists(checkpoint_path):
                     try:
                         old_checkpoint_path = os.path.join(log_dir, f"model_{step-2*args.checkpoint_interval:05d}.pt")
-                        os.remove(old_checkpoint_path)
+                        if os.path.exists(old_checkpoint_path):
+                            os.remove(old_checkpoint_path)
                     except:
                         print("failed to remove old checkpoint")
 
