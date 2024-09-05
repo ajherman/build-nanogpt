@@ -27,6 +27,8 @@ parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip con
 parser.add_argument('--rotation_mlp', action='store_true', help='Use rotation MLP')
 parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
 parser.add_argument('--mlp_renormalize', action='store_true', help='Renormalize MLP output')
+parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
+parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
 parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
@@ -166,15 +168,27 @@ class Block(nn.Module):
 
         # Self attention
         if self.config.attn_no_skip:
-            x = self.attn(self.ln_1(x))
+            if self.config.attn_post_norm:
+                x = self.ln_1(self.attn(x))
+            else:
+                x = self.attn(self.ln_1(x))
         else:
-            x = x + self.attn(self.ln_1(x))
+            if self.config.attn_post_norm:
+                x = self.ln_1(x + self.attn(x))
+            else:
+                x = x + self.attn(self.ln_1(x))
 
         # MLP
         if self.config.mlp_no_skip:
-            x = self.mlp(self.ln_2(x))
+            if self.config.mlp_post_norm:
+                x = self.ln_2(self.mlp(x))
+            else:
+                x = self.mlp(self.ln_2(x))
         else:
-            x = x + self.mlp(self.ln_2(x))
+            if self.config.mlp_post_norm:
+                x = self.ln_2(x + self.mlp(x))
+            else:
+                x = x + self.mlp(self.ln_2(x))
 
         return x
 @dataclass
