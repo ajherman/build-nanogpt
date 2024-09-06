@@ -207,6 +207,8 @@ class GPTConfig:
     rotation_mlp: bool = False # use rotation MLP
     mlp_no_bias: bool = False # use no bias in MLP
     mlp_renormalize: bool = False
+    mlp_post_norm: bool = False
+    attn_post_norm: bool = False
 
 class GPT(nn.Module):
 
@@ -502,7 +504,9 @@ model = GPT(GPTConfig(vocab_size=vocab_size,
                     attn_no_skip=args.attn_no_skip,
                     rotation_mlp=args.rotation_mlp,
                     mlp_no_bias=args.mlp_no_bias,
-                    mlp_renormalize=args.mlp_renormalize))
+                    mlp_renormalize=args.mlp_renormalize,
+                    mlp_post_norm=args.mlp_post_norm,
+                    attn_post_norm=args.attn_post_norm))
                     
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
