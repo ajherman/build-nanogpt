@@ -43,6 +43,9 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 srun -o original.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original" 
 
+srun -o sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --micro_batch_size=16 --output_dir=sphere" 
+
+
 # srun -o nobias.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --output_dir=nobias" 
 
 # srun -o renormalize_only.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_norm_type=none --mlp_renormalize --output_dir=renormalize_only" 
