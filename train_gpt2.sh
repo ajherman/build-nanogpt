@@ -39,17 +39,17 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 
 
-srun -o renormalize.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize" 
+# srun -o renormalize.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize" 
 
 srun -o original.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original" 
 
-srun -o nobias.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --output_dir=nobias" 
+# srun -o nobias.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --output_dir=nobias" 
 
-srun -o renormalize_only.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_norm_type=none --mlp_renormalize --output_dir=renormalize_only" 
+# srun -o renormalize_only.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_norm_type=none --mlp_renormalize --output_dir=renormalize_only" 
 
-srun -o rmsnorm.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_norm_type=rms --output_dir=rmsnorm" 
+# srun -o rmsnorm.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_norm_type=rms --output_dir=rmsnorm" 
 
-srun -o renormalize_noskip.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_skip --mlp_renormalize --output_dir=renormalize_noskip" 
+# srun -o renormalize_noskip.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_skip --mlp_renormalize --output_dir=renormalize_noskip" 
 
 srun -o post_norm.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_post_norm --attn_post_norm --output_dir=post_norm" 
 
