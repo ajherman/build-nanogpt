@@ -526,7 +526,7 @@ raw_model = model.module if ddp else model # always contains the "raw" unwrapped
 # write out the config to the log directory
 params_file = os.path.join(log_dir, f"params.txt")
 with open(params_file, "w") as f:
-    f.write(model.config.__repr__())
+    f.write(raw_model.config.__repr__())
 
 max_lr = 6e-4
 min_lr = max_lr * 0.1
