@@ -29,6 +29,7 @@ parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in M
 parser.add_argument('--mlp_renormalize', action='store_true', help='Renormalize MLP output')
 parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
 parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
+parser.add_argument('--warmup_steps',type=int,default=715,help='Number of warmup steps for lr')
 parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
@@ -530,7 +531,7 @@ with open(params_file, "w") as f:
 
 max_lr = 6e-4
 min_lr = max_lr * 0.1
-warmup_steps = 715
+warmup_steps = args.warmup_steps
 max_steps = 2*19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 def get_lr(it):
     # 1) linear warmup for warmup_iters steps

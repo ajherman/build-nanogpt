@@ -2,7 +2,7 @@
 #SBATCH --job-name=main
 #SBATCH --time 2:00:00
 #SBATCH -N 1           
-#SBATCH -p shared-redstone
+#SBATCH -p shared-gpu
 #SBATCH -C gpu_count:4
 #SBATCH --mem=0
 #SBATCH --exclusive
@@ -40,6 +40,8 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 
 # srun -o renormalize.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_no_bias --mlp_renormalize --output_dir=renormalize" 
+
+srun -o no_warmup.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --warmup_steps=0 --micro_batch_size=16 --output_dir=no_warmup"
 
 srun -o full_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --micro_batch_size=16 --output_dir=full_sphere" 
 
