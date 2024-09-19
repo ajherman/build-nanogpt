@@ -120,13 +120,13 @@ class MLP(nn.Module):
             self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
             self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
         
-        if self.config.mlp_renormalize is 'layer':
+        if self.config.mlp_renormalize == 'layer':
             self.ln = nn.LayerNorm(self.config.n_embd)
-        elif self.config.mlp_renormalize is 'rms':
+        elif self.config.mlp_renormalize == 'rms':
             self.ln = nn.RMSNorm(self.config.n_embd)
-        elif self.config.mlp_renormalize is 'sphere':
+        elif self.config.mlp_renormalize == 'sphere':
             self.ln = nn.LayerNorm(self.config.n_embd, elementwise_affine=False, bias=False)
-        elif self.config.mlp_renormalize is 'none':
+        elif self.config.mlp_renormalize == 'none':
             pass
         else:
             raise ValueError(f"Unknown MLP renormalization type: {self.config.mlp_renormalize}")
@@ -223,7 +223,8 @@ class GPTConfig:
     attn_no_skip: bool = False
     rotation_mlp: bool = False # use rotation MLP
     mlp_no_bias: bool = False # use no bias in MLP
-    mlp_renormalize: bool = False
+   # mlp_renormalize: bool = False
+    mlp_renormalize: str = 'none'
     mlp_post_norm: bool = False
     attn_post_norm: bool = False
 
