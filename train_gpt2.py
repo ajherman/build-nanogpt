@@ -26,12 +26,14 @@ parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip conn
 parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip connection in attention')
 parser.add_argument('--rotation_mlp', action='store_true', help='Use rotation MLP')
 parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
-parser.add_argument('--mlp_renormalize', action='store_true', help='Renormalize MLP output')
+# parser.add_argument('--mlp_renormalize', action='store_true', help='Renormalize MLP output')
+parser.add_argument('--mlp_renormalize', type=str, default='none', help='Type of renormalization to use')
 parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
 parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
 parser.add_argument('--warmup_steps',type=int,default=715,help='Number of warmup steps for lr')
 parser.add_argument('--max_lr',type=float,default=6e-4,help='Max learning rate')
 parser.add_argument('--min_lr',type=float,default=6e-5,help='Min learning rate')
+parser.add_argument('--lr_decay_type',type=str,default='cosine',help='Type of learning rate decay')
 parser.add_argument('--test_wiki', action='store_true', help='Test on wikitext-103')
 args = parser.parse_args()
 
@@ -118,8 +120,16 @@ class MLP(nn.Module):
             self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
             self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
         
-        if self.config.mlp_renormalize:
+        if self.config.mlp_renormalize is 'layer':
             self.ln = nn.LayerNorm(self.config.n_embd)
+        elif self.config.mlp_renormalize is 'rms':
+            self.ln = nn.RMSNorm(self.config.n_embd)
+        elif self.config.mlp_renormalize is 'sphere':
+            self.ln = nn.LayerNorm(self.config.n_embd, elementwise_affine=False, bias=False)
+        elif self.config.mlp_renormalize is 'none':
+            pass
+        else:
+            raise ValueError(f"Unknown MLP renormalization type: {self.config.mlp_renormalize}")
 
     def forward(self, x):
         # if self.config.rotation_mlp:
@@ -137,7 +147,7 @@ class MLP(nn.Module):
         
         x = self.c_proj(x)
 
-        if self.config.mlp_renormalize:
+        if self.config.mlp_renormalize is not 'none':
             # assert(self.config.mlp_no_skip) # I don't think we want to renormalize with skip connections
             x = self.ln(x)
 
@@ -543,10 +553,18 @@ def get_lr(it):
     if it > max_steps:
         return min_lr
     # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
-    return min_lr + coeff * (max_lr - min_lr)
+    if args.lr_decay_type == 'cosine':
+        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff starts at 1 and goes to 0
+        return min_lr + coeff * (max_lr - min_lr)
+    elif args.lr_decay_type == 'linear':
+        decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+        assert 0 <= decay_ratio <= 1
+        coeff = 1 - decay_ratio
+        return min_lr + coeff * (max_lr - min_lr)
+    else:
+        raise ValueError(f"unknown lr_decay_type: {args.lr_decay_type}")
 
 # optimize!
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device_type=device_type)
