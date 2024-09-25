@@ -73,6 +73,12 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_embd = config.n_embd
 
+        self._init_weights()
+
+    def _init_weights(self):
+        torch.nn.init.normal_(self.c_attn, mean=0.0, std=self.c_attn.SD_INIT)
+        torch.nn.init.normal_(self.c_proj, mean=0.0, std=self.c_proj.SD_INIT)
+
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
@@ -94,7 +100,7 @@ class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        
+
         self.c_fc = nn.Linear(self.config.n_embd, 4*self.config.n_embd, bias = not self.config.mlp_no_bias)
         self.c_proj = nn.Linear(4*self.config.n_embd, self.config.n_embd, bias = not self.config.mlp_no_bias)
 
@@ -120,11 +126,15 @@ class MLP(nn.Module):
         else:
             raise ValueError(f"Unknown MLP renormalization type: {self.config.mlp_renormalize}")
 
-    def forward(self, x):
-        # if self.config.rotation_mlp:
-        #     U,_,V = torch.svd_lowrank(self.c_proj_param@self.c_fc_param)
-        #     self
+    def _init_weights(self):
+        torch.nn.init.normal_(self.c_fc.weight, mean=0.0, std=self.c_fc.SD_INIT)
+        if self.config.mlp_no_bias:
+            self.c_fc.bias.data.zero_()
+        self.c_proj.weight = nn.Parameter(self.c_fc.weight.t())
+        if self.config.mlp_no_bias:
+            self.c_proj.bias.data.zero_()
 
+    def forward(self, x):
         x = self.c_fc(x)
 
         if self.config.act_fun == 'gelu':
@@ -205,13 +215,11 @@ class GPTConfig:
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
     act_fun: str = 'gelu' # activation function
-    # block_type: str = 'norm' # block type
     mlp_norm_type: str = 'layer' # norm type
     attn_norm_type: str = 'layer'
     mlp_no_skip: bool = False # use no skip connection in MLP
     attn_no_skip: bool = False
     mlp_no_bias: bool = False # use no bias in MLP
-   # mlp_renormalize: bool = False
     mlp_renormalize: str = 'none'
     mlp_post_norm: bool = False
     attn_post_norm: bool = False
