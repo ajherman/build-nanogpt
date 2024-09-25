@@ -23,9 +23,7 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 #pip install tiktoken
 #export PATH="/vast/home/ajherman/miniconda3/envs/transformer/bin:$PATH"
 
-#srun -o mlp_renormalize_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --micro_batch_size=16 --output_dir=mlp_renormalize_sphere" 
-
-srun -o post_mlp_renormalize_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --mlp_post_norm --micro_batch_size=16 --output_dir=post_mlp_renormalize_sphere" 
+srun -o mlp_renormalize_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --micro_batch_size=16 --output_dir=mlp_renormalize_sphere" 
 
 srun -o mlp_renormalize.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize layer --micro_batch_size=16 --output_dir=mlp_renormalize" 
 

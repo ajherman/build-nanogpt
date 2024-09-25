@@ -19,14 +19,11 @@ parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interv
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
-# parser.add_argument('--block_type', type=str, default='norm', help='Type of block to use')
 parser.add_argument('--mlp_norm_type', type=str, default='layer', help='Type of normalization to use')
 parser.add_argument('--attn_norm_type', type=str, default='layer', help='Type of normalization to use')
 parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip connection in MLP')
 parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip connection in attention')
-parser.add_argument('--rotation_mlp', action='store_true', help='Use rotation MLP')
 parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
-# parser.add_argument('--mlp_renormalize', action='store_true', help='Renormalize MLP output')
 parser.add_argument('--mlp_renormalize', type=str, default='none', help='Type of renormalization to use')
 parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
 parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
@@ -97,17 +94,9 @@ class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-
-        if config.rotation_mlp:
-            self.c_fc_param = nn.Parameter(torch.randn(self.config.n_embd, 4*self.config.n_embd))
-            self.c_proj_param = nn.Parameter(torch.randn(4*self.config.n_embd, self.config.n_embd))
-            U,_,V = torch.svd_lowrank(self.c_proj_param@self.c_fc_param)
-
-            self.c_fc = nn.Linear(self.config.n_embd, 4 * self.config.n_embd, bias = not self.config.mlp_no_bias)
-            self.c_proj = nn.Linear(4*self.config.n_embd, self.config.n_embd, bias = not self.config.mlp_no_bias)
-        else:   
-            self.c_fc = nn.Linear(self.config.n_embd, 4*self.config.n_embd, bias = not self.config.mlp_no_bias)
-            self.c_proj = nn.Linear(4*self.config.n_embd, self.config.n_embd, bias = not self.config.mlp_no_bias)
+        
+        self.c_fc = nn.Linear(self.config.n_embd, 4*self.config.n_embd, bias = not self.config.mlp_no_bias)
+        self.c_proj = nn.Linear(4*self.config.n_embd, self.config.n_embd, bias = not self.config.mlp_no_bias)
 
         self.gelu = nn.GELU(approximate='tanh')
         self.relu = nn.ReLU()
@@ -221,7 +210,6 @@ class GPTConfig:
     attn_norm_type: str = 'layer'
     mlp_no_skip: bool = False # use no skip connection in MLP
     attn_no_skip: bool = False
-    rotation_mlp: bool = False # use rotation MLP
     mlp_no_bias: bool = False # use no bias in MLP
    # mlp_renormalize: bool = False
     mlp_renormalize: str = 'none'
@@ -257,7 +245,7 @@ class GPT(nn.Module):
             # if module.bias is not None:
             #     torch.nn.init.zeros_(module.bias)
         if isinstance(module, nn.Linear):
-            if hasattr(module, 'SD_INIT'): # Each module specifies its own std deviation
+            if hasattr(module, 'SD_INIT'): # Each module specifies its own std 
                 std = module.SD_INIT
                 torch.nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
@@ -510,17 +498,12 @@ with open(log_file, "a") as f: # open for writing to clear the file
 
 # create model
 vocab_size = 50304
-# act_fun = args.act_fun
-# block_type = args.block_type
-# norm_type = args.norm_type
-# rotation_mlp = args.rotation_mlp
 model = GPT(GPTConfig(vocab_size=vocab_size, 
                     act_fun=args.act_fun, 
                     mlp_norm_type=args.mlp_norm_type, 
                     attn_norm_type=args.attn_norm_type,
                     mlp_no_skip=args.mlp_no_skip,
                     attn_no_skip=args.attn_no_skip,
-                    rotation_mlp=args.rotation_mlp,
                     mlp_no_bias=args.mlp_no_bias,
                     mlp_renormalize=args.mlp_renormalize,
                     mlp_post_norm=args.mlp_post_norm,
