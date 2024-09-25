@@ -1,0 +1,1 @@
+GPTConfig(block_size=1024, vocab_size=50304, n_layer=12, n_head=12, n_embd=768, act_fun='gelu', mlp_norm_type='sphere', attn_norm_type='sphere', mlp_no_skip=False, attn_no_skip=False, rotation_mlp=False, mlp_no_bias=False, mlp_renormalize='sphere', mlp_post_norm=True, attn_post_norm=False)
