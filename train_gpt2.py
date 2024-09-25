@@ -112,8 +112,11 @@ class MLP(nn.Module):
             self.SD_INIT = 1./(2*self.config.n_embd)**0.5
         else:
             # This is the default used in the original script
-            self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
-            self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+            if not self.config.mlp_no_skip: # If using skips, initialize with small weights
+                self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+                self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+            else: # If not using skip, initialize with larger weights to mimic identity at init
+                self.c_fc.SD_INIT = (2 * self.config.n_layer)**-0.5
         
         if self.config.mlp_renormalize == 'layer':
             self.ln = nn.LayerNorm(self.config.n_embd)
@@ -125,14 +128,18 @@ class MLP(nn.Module):
             pass
         else:
             raise ValueError(f"Unknown MLP renormalization type: {self.config.mlp_renormalize}")
+        
+        self._init_weights()
 
     def _init_weights(self):
         torch.nn.init.normal_(self.c_fc.weight, mean=0.0, std=self.c_fc.SD_INIT)
-        if self.config.mlp_no_bias:
-            self.c_fc.bias.data.zero_()
+        if not self.config.mlp_no_bias:
+            torch.nn.init.zeros_(self.c_fc.bias)
+#
+        # USING TRANSPOSE WEIGHT INIT AS DEFAULT!
         self.c_proj.weight = nn.Parameter(self.c_fc.weight.t())
-        if self.config.mlp_no_bias:
-            self.c_proj.bias.data.zero_()
+        if not self.config.mlp_no_bias:
+            torch.nn.init.zeros_(self.c_proj.bias)
 
     def forward(self, x):
         x = self.c_fc(x)
@@ -147,7 +154,6 @@ class MLP(nn.Module):
         x = self.c_proj(x)
 
         if self.config.mlp_renormalize != 'none':
-            # assert(self.config.mlp_no_skip) # I don't think we want to renormalize with skip connections
             x = self.ln(x)
 
         return x
@@ -245,20 +251,20 @@ class GPT(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
-        if isinstance(module,MLP):
-            if hasattr(module, 'SD_INIT'):
-                std = module.SD_INIT
-                torch.nn.init.normal_(module.c_fc.weight, mean=0.0, std=std)
-                module.c_proj.weight = nn.Parameter(module.c_fc.weight.t())
-            # if module.bias is not None:
-            #     torch.nn.init.zeros_(module.bias)
-        if isinstance(module, nn.Linear):
-            if hasattr(module, 'SD_INIT'): # Each module specifies its own std 
-                std = module.SD_INIT
-                torch.nn.init.normal_(module.weight, mean=0.0, std=std)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
+        # if isinstance(module,MLP):
+        #     if hasattr(module, 'SD_INIT'):
+        #         std = module.SD_INIT
+        #         torch.nn.init.normal_(module.c_fc.weight, mean=0.0, std=std)
+        #         module.c_proj.weight = nn.Parameter(module.c_fc.weight.t())
+        #     # if module.bias is not None:
+        #     #     torch.nn.init.zeros_(module.bias)
+        # if isinstance(module, nn.Linear):
+        #     if hasattr(module, 'SD_INIT'): # Each module specifies its own std 
+        #         std = module.SD_INIT
+        #         torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+        #     if module.bias is not None:
+        #         torch.nn.init.zeros_(module.bias)
+        if isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None):
