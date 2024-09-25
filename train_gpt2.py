@@ -62,9 +62,9 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         assert config.n_embd % config.n_head == 0
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
+        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
         # output projection
-        self.c_proj = nn.Linear(config.n_embd, config.n_embd)
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=True)
         self.config = config
 
         self.c_attn.SD_INIT = 0.02
@@ -76,8 +76,9 @@ class CausalSelfAttention(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        torch.nn.init.normal_(self.c_attn, mean=0.0, std=self.c_attn.SD_INIT)
-        torch.nn.init.normal_(self.c_proj, mean=0.0, std=self.c_proj.SD_INIT)
+        torch.nn.init.normal_(self.c_attn.weight, mean=0.0, std=self.c_attn.SD_INIT)
+        torch.nn.init.normal_(self.c_proj.weight, mean=0.0, std=self.c_proj.SD_INIT)
+        torch.nn.init.zeros_(self.c_proj.bias)
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
