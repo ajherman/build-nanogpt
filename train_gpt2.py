@@ -147,7 +147,7 @@ class MLP(nn.Module):
         
         x = self.c_proj(x)
 
-        if self.config.mlp_renormalize is not 'none':
+        if self.config.mlp_renormalize != 'none':
             # assert(self.config.mlp_no_skip) # I don't think we want to renormalize with skip connections
             x = self.ln(x)
 
