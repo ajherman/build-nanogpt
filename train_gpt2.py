@@ -80,7 +80,7 @@ class CausalSelfAttention(nn.Module):
         torch.nn.init.normal_(self.c_proj.weight, mean=0.0, std=self.c_proj.SD_INIT)
         torch.nn.init.zeros_(self.c_proj.bias)
 
-    def forward(self, x):SD_INIT
+    def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
