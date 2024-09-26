@@ -80,7 +80,7 @@ class CausalSelfAttention(nn.Module):
         torch.nn.init.normal_(self.c_proj.weight, mean=0.0, std=self.c_proj.SD_INIT)
         torch.nn.init.zeros_(self.c_proj.bias)
 
-    def forward(self, x):
+    def forward(self, x):SD_INIT
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
@@ -109,15 +109,10 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
 
         # Scaling factors for MLP initializations (s.d. of elements)
-        if self.config.mlp_no_skip:
-            self.SD_INIT = 1./(2*self.config.n_embd)**0.5
-        else:
-            # This is the default used in the original script
-            if not self.config.mlp_no_skip: # If using skips, initialize with small weights
-                self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
-                self.c_proj.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
-            else: # If not using skip, initialize with larger weights to mimic identity at init
-                self.c_fc.SD_INIT = (2 * self.config.n_layer)**-0.5
+        if not self.config.mlp_no_skip: # If using skips, initialize with small weights
+            self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+        else: # If not using skip, initialize with larger weights to mimic identity at init
+            self.c_fc.SD_INIT = (2.0 * self.config.n_layer)**-0.5
         
         if self.config.mlp_renormalize == 'layer':
             self.ln = nn.LayerNorm(self.config.n_embd)
