@@ -260,7 +260,7 @@ class GPT(nn.Module):
         tok_emb = self.transformer.wte(idx) # token embeddings of shape (B, T, n_embd)
         x = tok_emb + pos_emb
         # forward the blocks of the transformer
-        if np.random.random() < 0.01:
+        if np.random.random() < 0.001:
             print_norms = True
         else:
             print_norms = False
