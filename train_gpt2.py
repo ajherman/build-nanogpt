@@ -247,19 +247,6 @@ class GPT(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
-        # if isinstance(module,MLP):
-        #     if hasattr(module, 'SD_INIT'):
-        #         std = module.SD_INIT
-        #         torch.nn.init.normal_(module.c_fc.weight, mean=0.0, std=std)
-        #         module.c_proj.weight = nn.Parameter(module.c_fc.weight.t())
-        #     # if module.bias is not None:
-        #     #     torch.nn.init.zeros_(module.bias)
-        # if isinstance(module, nn.Linear):
-        #     if hasattr(module, 'SD_INIT'): # Each module specifies its own std 
-        #         std = module.SD_INIT
-        #         torch.nn.init.normal_(module.weight, mean=0.0, std=std)
-        #     if module.bias is not None:
-        #         torch.nn.init.zeros_(module.bias)
         if isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
@@ -273,7 +260,15 @@ class GPT(nn.Module):
         tok_emb = self.transformer.wte(idx) # token embeddings of shape (B, T, n_embd)
         x = tok_emb + pos_emb
         # forward the blocks of the transformer
-        for block in self.transformer.h:
+        if np.random.random() < 0.01:
+            print_norms = True
+        else:
+            print_norms = False
+        for layer_n,block in enumerate(self.transformer.h):
+            # Get average norm of element
+            if print_norms:
+                nrm = torch.norm(x, dim=-1).mean()
+                print(f"Layer {layer_n} norm: {nrm}")
             x = block(x)
         # forward the final layernorm and the classifier
         x = self.transformer.ln_f(x)
