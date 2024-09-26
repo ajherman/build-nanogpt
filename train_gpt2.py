@@ -163,7 +163,7 @@ class Block(nn.Module):
             self.ln_1 = nn.LayerNorm(config.n_embd)
         elif self.config.attn_norm_type == 'rms':
             self.ln_1 = nn.RMSNorm(config.n_embd)
-        elif self.config.mlp_norm_type == 'sphere':
+        elif self.config.attn_norm_type == 'sphere':
             self.ln_1 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
         elif self.config.attn_norm_type == 'none':
             self.ln_1 = nn.Identity()
