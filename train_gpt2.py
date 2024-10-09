@@ -531,6 +531,7 @@ model = GPT(GPTConfig(vocab_size=vocab_size,
                     mlp_no_bias=args.mlp_no_bias,
                     mlp_renormalize=args.mlp_renormalize,
                     mlp_post_norm=args.mlp_post_norm,
+                    scaling=args.scaling,
                     attn_post_norm=args.attn_post_norm))
                     
 
