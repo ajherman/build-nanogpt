@@ -26,6 +26,8 @@ parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip con
 parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
 parser.add_argument('--mlp_renormalize', type=str, default='none', help='Type of renormalization to use')
 parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
+parser.add_argument('--scaling', type=str, default='none', help='Type of scaling to use')
+parser.add_argument('--mlp_penalty', action='store_true', help='Penalize MLP output that is not normalized')
 parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
 parser.add_argument('--warmup_steps',type=int,default=715,help='Number of warmup steps for lr')
 parser.add_argument('--max_lr',type=float,default=6e-4,help='Max learning rate')
@@ -45,17 +47,6 @@ if test_wiki:
 
     # Create a data loader object
     wiki_loader = torch.utils.data.DataLoader(wiki_dataset, batch_size=64, shuffle=True)
-    # # Sample from the data loader
-    # for i in range(10):
-    #     sample = next(iter(wiki_loader))
-    #     # print(sample['text']) 
-    #     tokens = tokenizer(sample['text'], truncation=True, max_length=1024, padding="max_length", return_tensors='pt')
-    #     print(tokens['input_ids'].shape)
-
-    # assert(0)
-
-
-
 class CausalSelfAttention(nn.Module):
 
     def __init__(self, config):
@@ -179,9 +170,11 @@ class Block(nn.Module):
         elif self.config.mlp_norm_type == 'none':
             self.ln_2 = nn.Identity()
 
+        self.ln_main = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+
         self.mlp = MLP(config)
         
-    def forward(self, x):
+    def forward(self, x, layer_n=None):
         penalty = 0 # For weight normalization penalty
 
         # Self attention
@@ -203,10 +196,21 @@ class Block(nn.Module):
             else:
                 x = self.mlp(self.ln_2(x))
         else:
-            if self.config.mlp_post_norm:
-                x = self.ln_2(x + self.mlp(x))
-            else:
-                x = x + self.mlp(self.ln_2(x))
+            if self.config.scaling == 'none':
+                if self.config.mlp_post_norm:
+                    x = self.ln_2(x + self.mlp(x))
+                else:
+                    x = x + self.mlp(self.ln_2(x))
+
+            else: # Try to mimic natural scale of activities
+                if self.config.scaling == 'nonuniform':
+                    scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,35.0,37.0][layer_n]
+                elif self.config.scaling == 'uniform':
+                    scaling_factor = 30.0
+                if self.config.mlp_post_norm:
+                    x = self.ln_2(self.ln_main(x)*scaling_factor + self.mlp(x))
+                else:
+                    x = self.ln_main(x)*scaling_factor + self.mlp(self.ln_2(x))
 
         return x
 @dataclass
@@ -269,7 +273,12 @@ class GPT(nn.Module):
             if print_norms:
                 nrm = torch.norm(x, dim=-1).mean()
                 print(f"Layer {layer_n} norm: {nrm}")
-            x = block(x)
+            if self.config.scaling == 'nonuniform':
+                x = block(x, layer_n)
+            elif self.config.scaling == 'uniform':
+                x = block(x,layer_n)
+            else:
+                x = block(x)
         # forward the final layernorm and the classifier
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x) # (B, T, vocab_size)
