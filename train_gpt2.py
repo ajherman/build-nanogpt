@@ -175,7 +175,6 @@ class Block(nn.Module):
         self.mlp = MLP(config)
         
     def forward(self, x, layer_n=None):
-        penalty = 0 # For weight normalization penalty
 
         # Self attention
         if self.config.attn_no_skip:
@@ -192,27 +191,35 @@ class Block(nn.Module):
         # MLP
         if self.config.mlp_no_skip:
             if self.config.mlp_post_norm:
-                x = self.ln_2(self.mlp(x))
+                mlp_output = self.mlp(x)
+                x = self.ln_2(mlp_output)
             else:
                 x = self.mlp(self.ln_2(x))
+                mlp_output = x
         else:
             if self.config.scaling == 'none':
                 if self.config.mlp_post_norm:
-                    x = self.ln_2(x + self.mlp(x))
+                    mlp_output = self.mlp(x)
+                    x = self.ln_2(x + mlp_output)
                 else:
-                    x = x + self.mlp(self.ln_2(x))
+                    mlp_output = self.mlp(self.ln_2(x))
+                    x = x + mlp_output
 
             else: # Try to mimic natural scale of activities
                 if self.config.scaling == 'nonuniform':
                     scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,35.0,37.0][layer_n]
                 elif self.config.scaling == 'uniform':
                     scaling_factor = 30.0
+                elif self.config.scaling == 'exp':
+                    scaling_factor = 1.6**layer_n
                 if self.config.mlp_post_norm:
-                    x = self.ln_2(self.ln_main(x)*scaling_factor + self.mlp(x))
+                    mlp_output = self.mlp(x)
+                    x = self.ln_2(self.ln_main(x)*scaling_factor + mlp_output)
                 else:
-                    x = self.ln_main(x)*scaling_factor + self.mlp(self.ln_2(x))
+                    mlp_output = self.mlp(self.ln_2(x))
+                    x = self.ln_main(x)*scaling_factor + mlp_output
 
-        return x
+        return x,mlp_output
 @dataclass
 class GPTConfig:
     block_size: int = 1024 # max sequence length
@@ -255,6 +262,7 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None):
+        penalty = 0.0
         # idx is of shape (B, T)
         B, T = idx.size()
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
@@ -273,18 +281,20 @@ class GPT(nn.Module):
             if print_norms:
                 nrm = torch.norm(x, dim=-1).mean()
                 print(f"Layer {layer_n} norm: {nrm}")
-            if self.config.scaling == 'nonuniform':
-                x = block(x, layer_n)
-            elif self.config.scaling == 'uniform':
-                x = block(x,layer_n)
-            else:
-                x = block(x)
+            x, mlp_output = block(x, layer_n)
+
+            # How far for normalized is mlp output
+            if self.config.mlp_penalty:
+                penalty += 0.5*(torch.norm(mlp_output,dim=-1).mean()-1.0)**2
+     
         # forward the final layernorm and the classifier
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x) # (B, T, vocab_size)
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+            if self.config.mlp_penalty:
+                loss += penalty
         return logits, loss
 
     @classmethod

@@ -29,6 +29,10 @@ srun -o nonuniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_nod
 
 srun -o uniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling uniform --output_dir=uniform_scaling"
 
+srun -o exp_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling exp --output_dir=exp_scaling"
+
+srun -o penalty.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_norm_type none --mlp_penalty --output_dir=penalty" 
+
 # srun -o no_skip.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --mlp_no_skip --micro_batch_size=16 --output_dir=no_skip" 
 
 # srun -o layer_no_skip.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type layer --attn_norm_type sphere --mlp_renormalize layer --mlp_no_skip --micro_batch_size=16 --output_dir=layer_no_skip" 
