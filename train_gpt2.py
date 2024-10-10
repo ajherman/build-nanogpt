@@ -217,6 +217,7 @@ class Block(nn.Module):
                     x = self.ln_2(self.ln_main(x)*scaling_factor + mlp_output)
                 else:
                     mlp_output = self.mlp(self.ln_2(x))
+
                     x = self.ln_main(x)*scaling_factor + mlp_output
 
         return x,mlp_output
@@ -280,10 +281,13 @@ class GPT(nn.Module):
             print_norms = False
         for layer_n,block in enumerate(self.transformer.h):
             # Get average norm of element
+            x, mlp_output = block(x, layer_n)
+
             if print_norms:
                 nrm = torch.norm(x, dim=-1).mean()
+                mlp_output_nrm = torch.norm(mlp_output, dim=-1).mean()
                 print(f"Layer {layer_n} norm: {nrm}")
-            x, mlp_output = block(x, layer_n)
+                print(f"Layer {layer_n} mlp_output norm: {mlp_output_nrm}")
 
             # How far for normalized is mlp output
             if self.config.mlp_penalty:
