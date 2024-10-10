@@ -207,7 +207,7 @@ class Block(nn.Module):
 
             else: # Try to mimic natural scale of activities
                 if self.config.scaling == 'nonuniform':
-                    scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,35.0,37.0][layer_n]
+                    scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,34.2,34.6,36.2,43.0,51.2][layer_n]
                 elif self.config.scaling == 'uniform':
                     scaling_factor = 30.0
                 elif self.config.scaling == 'exp':
@@ -233,6 +233,8 @@ class GPTConfig:
     mlp_no_skip: bool = False # use no skip connection in MLP
     attn_no_skip: bool = False
     mlp_no_bias: bool = False # use no bias in MLP
+    scaling: str = 'none'
+    mlp_penalty: bool = False
     mlp_renormalize: str = 'none'
     mlp_post_norm: bool = False
     attn_post_norm: bool = False
@@ -532,6 +534,7 @@ model = GPT(GPTConfig(vocab_size=vocab_size,
                     mlp_renormalize=args.mlp_renormalize,
                     mlp_post_norm=args.mlp_post_norm,
                     scaling=args.scaling,
+                    mlp_penalty=args.mlp_penalty,
                     attn_post_norm=args.attn_post_norm))
                     
 
