@@ -286,8 +286,10 @@ class GPT(nn.Module):
             if print_norms:
                 nrm = torch.norm(x, dim=-1).mean()
                 mlp_output_nrm = torch.norm(mlp_output, dim=-1).mean()
+                before_nrm = torch.norm(x-mlp_output, dim=-1).mean()
                 print(f"Layer {layer_n} norm: {nrm}")
                 print(f"Layer {layer_n} mlp_output norm: {mlp_output_nrm}")
+                print(f"Layer {layer_n} before norm: {before_nrm}")
 
             # How far for normalized is mlp output
             if self.config.mlp_penalty:
