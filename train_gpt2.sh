@@ -25,9 +25,9 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 # srun -o original_test.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original_test" 
 
-srun -o nonuniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --scaling nonuniform --output_dir=nonuniform_scaling" 
+srun -o nonuniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --scaling nonuniform --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=nonuniform_scaling" 
 
-srun -o uniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling uniform --output_dir=uniform_scaling"
+srun -o uniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling uniform --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=uniform_scaling"
 
 srun -o exp_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling exp --output_dir=exp_scaling"
 
