@@ -207,11 +207,11 @@ class Block(nn.Module):
 
             else: # Try to mimic natural scale of activities
                 if self.config.scaling == 'nonuniform':
-                    scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,34.2,34.6,36.2,43.0,51.2][layer_n]
+                    scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,34.2,34.6,36.2,43.0,51.2][layer_n]/(786**0.5)
                 elif self.config.scaling == 'uniform':
-                    scaling_factor = 30.0
+                    scaling_factor = 1.0
                 elif self.config.scaling == 'exp':
-                    scaling_factor = 1.6**layer_n
+                    scaling_factor = 1.6**layer_n/27.1
                 if self.config.mlp_post_norm:
                     mlp_output = self.mlp(x)
                     x = self.ln_2(self.ln_main(x)*scaling_factor + mlp_output)
