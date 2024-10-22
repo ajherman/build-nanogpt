@@ -23,9 +23,9 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 #pip install tiktoken
 #export PATH="/vast/home/ajherman/miniconda3/envs/transformer/bin:$PATH"
 
-srun -o original_test.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original_test" 
+#srun -o original_test.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original_test" 
 
-srun -o nonuniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --scaling nonuniform --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=nonuniform_scaling" 
+#srun -o nonuniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --scaling nonuniform --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=nonuniform_scaling" 
 
 srun -o uniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling uniform --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=uniform_scaling"
 
