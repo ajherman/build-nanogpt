@@ -26,6 +26,7 @@ parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip con
 parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
 parser.add_argument('--mlp_renormalize', type=str, default='none', help='Type of renormalization to use')
 parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
+parser.add_argument('--mlp_skip_norm', type=str, default='none', help='Apply normalization to MLP skip connections')
 parser.add_argument('--scaling', type=str, default='none', help='Type of scaling to use')
 parser.add_argument('--mlp_penalty', action='store_true', help='Penalize MLP output that is not normalized')
 parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
@@ -170,7 +171,12 @@ class Block(nn.Module):
         elif self.config.mlp_norm_type == 'none':
             self.ln_2 = nn.Identity()
 
-        self.ln_main = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        if config.mlp_skip_norm == 'layer':
+            self.ln3 = nn.LayerNorm(config.n_embd)
+        elif config.mlp_skip_norm == 'rms':
+            self.ln3 = nn.RMSNorm(config.n_embd)
+        elif config.mlp_skip_norm == 'sphere':
+            self.ln3 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
 
         self.mlp = MLP(config)
         
@@ -197,7 +203,7 @@ class Block(nn.Module):
                 x = self.mlp(self.ln_2(x))
                 mlp_output = x
         else:
-            if self.config.scaling == 'none':
+            if self.config.mlp_skip_norm == 'none':
                 if self.config.mlp_post_norm:
                     mlp_output = self.mlp(x)
                     x = self.ln_2(x + mlp_output)
@@ -206,19 +212,12 @@ class Block(nn.Module):
                     x = x + mlp_output
 
             else: # Try to mimic natural scale of activities
-                if self.config.scaling == 'nonuniform':
-                    scaling_factor = [1.0,14.6,22.14,27.66,29.45,31.12,32.5,34.2,34.6,36.2,43.0,51.2][layer_n]/(786**0.5)
-                elif self.config.scaling == 'uniform':
-                    scaling_factor = 1.0
-                elif self.config.scaling == 'exp':
-                    scaling_factor = 1.6**layer_n/27.1
                 if self.config.mlp_post_norm:
                     mlp_output = self.mlp(x)
-                    x = self.ln_2(self.ln_main(x)*scaling_factor + mlp_output)
+                    x = self.ln_2(self.ln3(x) + mlp_output)
                 else:
                     mlp_output = self.mlp(self.ln_2(x))
-
-                    x = self.ln_main(x)*scaling_factor + mlp_output
+                    x = self.ln3(x) + mlp_output
 
         return x,mlp_output
 @dataclass
@@ -238,6 +237,7 @@ class GPTConfig:
     mlp_penalty: bool = False
     mlp_renormalize: str = 'none'
     mlp_post_norm: bool = False
+    mlp_skip_norm: str = 'none'
     attn_post_norm: bool = False
 
 class GPT(nn.Module):
@@ -539,6 +539,7 @@ model = GPT(GPTConfig(vocab_size=vocab_size,
                     mlp_no_bias=args.mlp_no_bias,
                     mlp_renormalize=args.mlp_renormalize,
                     mlp_post_norm=args.mlp_post_norm,
+                    mlp_skip_norm=args.mlp_skip_norm,
                     scaling=args.scaling,
                     mlp_penalty=args.mlp_penalty,
                     attn_post_norm=args.attn_post_norm))
