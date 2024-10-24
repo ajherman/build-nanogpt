@@ -544,8 +544,12 @@ with open(params_file, "w") as f:
 max_lr = args.max_lr
 min_lr = args.min_lr #max_lr * 0.1
 warmup_steps = args.warmup_steps
+<<<<<<< HEAD
 n_epochs = args.n_epochs
 max_steps = n_epochs*19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+=======
+max_steps = 4*19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+>>>>>>> d7b9788b7d731a2f618e994609b2566b3c88d479
 def get_lr(it):
     # 1) linear warmup for warmup_iters steps
     if it < warmup_steps:

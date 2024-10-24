@@ -25,27 +25,17 @@ source activate /vast/home/ajherman/miniconda3/envs/transformer
 
 srun -o original.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original" 
 
-#srun -o nonuniform_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --scaling nonuniform --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=nonuniform_scaling" 
+srun -o pre_norm_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_pre_norm sphere --micro_batch_size=16 --output_dir=pre_norm_sphere" 
 
-srun -o mlp_skip_norm.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_skip_norm sphere --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=mlp_skip_norm"
+srun -o pre_post_skip_norm_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_pre_norm sphere --mlp_post_norm sphere --mlp_skip_norm sphere --micro_batch_size=16 --output_dir=pre_post_skip_norm_sphere"
 
-#srun -o exp_scaling.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16  --scaling exp --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --output_dir=exp_scaling"
+srun -o pre_post_norm_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_pre_norm sphere --mlp_post_norm sphere --micro_batch_size=16 --output_dir=pre_post_norm_sphere"
 
-# s#run -o penalty.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --mlp_norm_type none --mlp_penalty --output_dir=penalty" 
+srun -o post_norm_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_pre_norm none --mlp_post_norm sphere --micro_batch_size=16 --output_dir=post_norm_sphere"
 
-# srun -o no_skip.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --mlp_no_skip --micro_batch_size=16 --output_dir=no_skip" 
+srun -o skip_norm_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_pre_norm none --mlp_skip_norm sphere --micro_batch_size=16 --output_dir=skip_norm_sphere"
 
-# srun -o layer_no_skip.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type layer --attn_norm_type sphere --mlp_renormalize layer --mlp_no_skip --micro_batch_size=16 --output_dir=layer_no_skip" 
+srun -o pre_skip_norm_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_pre_norm sphere --mlp_skip_norm sphere --micro_batch_size=16 --output_dir=pre_skip_norm_sphere"
 
-# srun -o mlp_renormalize_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize sphere --micro_batch_size=16 --output_dir=mlp_renormalize_sphere" 
 
-# srun -o mlp_renormalize.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --mlp_renormalize layer --micro_batch_size=16 --output_dir=mlp_renormalize" 
-
-# srun -o no_warmup.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --warmup_steps=0 --micro_batch_size=16 --output_dir=no_warmup"
-
-# srun -o full_sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --attn_norm_type sphere --micro_batch_size=16 --output_dir=full_sphere" 
-
-# srun -o original.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --micro_batch_size=16 --output_dir=original" 
-
-# srun -o sphere.out --ntasks=1 -N 1 bash -c "torchrun --nproc_per_node=4 train_gpt2.py --mlp_norm_type sphere --micro_batch_size=16 --output_dir=sphere" 
 
