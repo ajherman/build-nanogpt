@@ -17,23 +17,20 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--micro_batch_size', type=int, default=64, help='How many samples to run on a single gpu at a time')
 parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interval for saving model checkpoints')
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
+parser.add_argument('--n_epochs', type=int, default=4, help='Number of epochs to train for')
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
 
-parser.add_argument('--attn_norm_type', type=str, default='layer', help='Type of normalization to use')
-parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip connection in attention')
-parser.add_argument('--attn_renormalize', type=str, default='none', help='Type of renormalization to use')
-parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
-parser.add_argument('--attn_skip_norm', type=str, default='none', help='Apply normalization to attention skip connections')
+# Attention sub-block 
+parser.add_argument('--attn_pre_norm', type=str, default='layer', help='Normalization type before attention (options: layer, rms, sphere, none)')
+parser.add_argument('--attn_post_norm', type=str, default='none', help='Renormalization type after attention (options: layer, rms, sphere, none)')
+parser.add_argument('--attn_skip_norm', type=str, default='none', help='Normalization type for attention skip connections (options: layer, rms, sphere, none)')
 
-parser.add_argument('--mlp_norm_type', type=str, default='layer', help='Type of normalization to use')
-parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip connection in MLP')
-parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
-parser.add_argument('--mlp_renormalize', type=str, default='none', help='Type of renormalization to use')
-parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
-parser.add_argument('--mlp_skip_norm', type=str, default='none', help='Apply normalization to MLP skip connections')
-parser.add_argument('--scaling', type=str, default='none', help='Type of scaling to use')
-parser.add_argument('--mlp_penalty', action='store_true', help='Penalize MLP output that is not normalized')
+# MLP sub-block
+parser.add_argument('--mlp_pre_norm', type=str, default='layer', help='Normalization type before MLP (options: layer, rms, sphere, none)')
+parser.add_argument('--mlp_post_norm', type=str, default='none', help='Renormalization type after MLP (options: layer, rms, sphere, none)')
+parser.add_argument('--mlp_skip_norm', type=str, default='none', help='Normalization type for MLP skip connections (options: layer, rms, sphere, none)')
+parser.add_argument('--mlp_no_bias', action='store_true', help='Disable bias in MLP layers')
 
 parser.add_argument('--warmup_steps',type=int,default=715,help='Number of warmup steps for lr')
 parser.add_argument('--max_lr',type=float,default=6e-4,help='Max learning rate')
@@ -105,22 +102,18 @@ class MLP(nn.Module):
         self.gelu = nn.GELU(approximate='tanh')
         self.relu = nn.ReLU()
 
-        # Scaling factors for MLP initializations (s.d. of elements)
-        if not self.config.mlp_no_skip: # If using skips, initialize with small weights
-            self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
-        else: # If not using skip, initialize with larger weights to mimic identity at init
-            self.c_fc.SD_INIT = (2.0 * self.config.n_layer)**-0.5
-        
-        if self.config.mlp_renormalize == 'layer':
-            self.ln = nn.LayerNorm(self.config.n_embd)
-        elif self.config.mlp_renormalize == 'rms':
-            self.ln = nn.RMSNorm(self.config.n_embd)
-        elif self.config.mlp_renormalize == 'sphere':
-            self.ln = nn.LayerNorm(self.config.n_embd, elementwise_affine=False, bias=False)
-        elif self.config.mlp_renormalize == 'none':
-            pass
-        else:
-            raise ValueError(f"Unknown MLP renormalization type: {self.config.mlp_renormalize}")
+        self.c_fc.SD_INIT = 0.02*(2 * self.config.n_layer)**-0.5
+
+        # if self.config.mlp_post_norm == 'layer':
+        #     self.ln = nn.LayerNorm(self.config.n_embd)
+        # elif self.config.mlp_post_norm == 'rms':
+        #     self.ln = nn.RMSNorm(self.config.n_embd)
+        # elif self.config.mlp_post_norm == 'sphere':
+        #     self.ln = nn.LayerNorm(self.config.n_embd, elementwise_affine=False, bias=False)
+        # elif self.config.mlp_post_norm == 'none':
+        #     self.ln = nn.Identity()
+        # else:
+        #     raise ValueError(f"Unknown MLP renormalization type: {self.config.mlp_post_norm}")
         
         self._init_weights()
 
@@ -146,8 +139,7 @@ class MLP(nn.Module):
         
         x = self.c_proj(x)
 
-        if self.config.mlp_renormalize != 'none':
-            x = self.ln(x)
+        # x = self.ln(x)
 
         return x
 
@@ -155,84 +147,90 @@ class Block(nn.Module):
 
     def __init__(self, config):
         super().__init__()
+
+        # Attention sub-block
+
         self.config = config
-        if self.config.attn_norm_type == 'layer':
-            self.ln_1 = nn.LayerNorm(config.n_embd)
-        elif self.config.attn_norm_type == 'rms':
-            self.ln_1 = nn.RMSNorm(config.n_embd)
-        elif self.config.attn_norm_type == 'sphere':
-            self.ln_1 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
-        elif self.config.attn_norm_type == 'none':
-            self.ln_1 = nn.Identity()
+        if self.config.attn_pre_norm == 'layer':
+            self.attn_pre_norm_layer = nn.LayerNorm(config.n_embd)
+        elif self.config.attn_pre_norm == 'rms':
+            self.attn_pre_norm_layer = nn.RMSNorm(config.n_embd)
+        elif self.config.attn_pre_norm == 'sphere':
+            self.attn_pre_norm_layer = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        elif self.config.attn_pre_norm == 'none':
+            self.attn_pre_norm_layer = nn.Identity()   
+
+        if self.config.attn_post_norm == 'layer':
+            self.attn_post_norm_layer = nn.LayerNorm(config.n_embd)
+        elif self.config.attn_post_norm == 'rms':
+            self.attn_post_norm_layer = nn.RMSNorm(config.n_embd)
+        elif self.config.attn_post_norm == 'sphere':
+            self.attn_post_norm_layer = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        elif self.config.attn_post_norm == 'none':
+            self.attn_post_norm_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown attention renormalization type: {self.config.attn_post_norm}")
+                    
+        if config.attn_skip_norm == 'layer':
+            self.attn_skip_norm_layer = nn.LayerNorm(config.n_embd)
+        elif config.attn_skip_norm == 'rms':
+            self.attn_skip_norm_layer = nn.RMSNorm(config.n_embd)
+        elif config.attn_skip_norm == 'sphere':
+            self.attn_skip_norm_layer = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        elif config.attn_skip_norm == 'none':
+            self.attn_skip_norm_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown attention skip normalization type: {config.attn_skip_norm}")
 
         self.attn = CausalSelfAttention(config)
 
-        if self.config.mlp_norm_type == 'layer':
-            self.ln_2 = nn.LayerNorm(config.n_embd)
-        elif self.config.mlp_norm_type == 'rms':
-            self.ln_2 = nn.RMSNorm(config.n_embd)
-        elif self.config.mlp_norm_type == 'sphere':
-            self.ln_2 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
-        elif self.config.mlp_norm_type == 'none':
-            self.ln_2 = nn.Identity()
+        # MLP sub-block
+        if self.config.mlp_pre_norm == 'layer':
+            self.mlp_pre_norm_layer = nn.LayerNorm(config.n_embd)
+        elif self.config.mlp_pre_norm == 'rms':
+            self.mlp_pre_norm_layer = nn.RMSNorm(config.n_embd)
+        elif self.config.mlp_pre_norm == 'sphere':
+            self.mlp_pre_norm_layer = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        elif self.config.mlp_pre_norm == 'none':
+            self.mlp_pre_norm_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown MLP normalization type: {self.config.mlp_pre_norm}")
+        
+        if config.mlp_post_norm == 'layer':
+            self.mlp_post_norm_layer = nn.LayerNorm(config.n_embd)
+        elif config.mlp_post_norm == 'rms':
+            self.mlp_post_norm_layer = nn.RMSNorm(config.n_embd)
+        elif config.mlp_post_norm == 'sphere':
+            self.mlp_post_norm_layer = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        elif config.mlp_post_norm == 'none':
+            self.mlp_post_norm_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown MLP renormalization type: {config.mlp_post_norm}")
 
         if config.mlp_skip_norm == 'layer':
-            self.ln3 = nn.LayerNorm(config.n_embd)
+            self.mlp_skip_norm_layer = nn.LayerNorm(config.n_embd)
         elif config.mlp_skip_norm == 'rms':
-            self.ln3 = nn.RMSNorm(config.n_embd)
+            self.mlp_skip_norm_layer = nn.RMSNorm(config.n_embd)
         elif config.mlp_skip_norm == 'sphere':
-            self.ln3 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
-
-        if config.attn_skip_norm == 'layer':
-            self.ln4 = nn.LayerNorm(config.n_embd)
-        elif config.attn_skip_norm == 'rms':
-            self.ln4 = nn.RMSNorm(config.n_embd)
-        elif config.attn_skip_norm == 'sphere':
-            self.ln4 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
-            
+            self.mlp_skip_norm_layer = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+        elif config.mlp_skip_norm == 'none':
+            self.mlp_skip_norm_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown MLP skip normalization type: {config.mlp_skip_norm}")
 
         self.mlp = MLP(config)
         
     def forward(self, x, layer_n=None):
 
         # Self attention
-        if self.config.attn_no_skip:
-            if self.config.attn_post_norm:
-                x = self.ln_1(self.attn(x))
-            else:
-                x = self.attn(self.ln_1(x))
-        else:
-            if self.config.attn_post_norm:
-                x = self.ln_1(x + self.attn(x))
-            else:
-                x = x + self.attn(self.ln_1(x))
+        # x = x + self.attn(self.attn_pre_norm_layer(x))
+        x = self.attn_skip_norm_layer(x) + self.attn_post_norm_layer(self.attn(self.attn_pre_norm_layer(x)))
 
         # MLP
-        if self.config.mlp_no_skip:
-            if self.config.mlp_post_norm:
-                mlp_output = self.mlp(x)
-                x = self.ln_2(mlp_output)
-            else:
-                x = self.mlp(self.ln_2(x))
-                mlp_output = x
-        else:
-            if self.config.mlp_skip_norm == 'none':
-                if self.config.mlp_post_norm:
-                    mlp_output = self.mlp(x)
-                    x = self.ln_2(x + mlp_output)
-                else:
-                    mlp_output = self.mlp(self.ln_2(x))
-                    x = x + mlp_output
+        # x = self.mlp_skip_norm_layer(x) + self.mlp(self.mlp_pre_norm_layer(x))
+        x = self.mlp_skip_norm_layer(x) + self.mlp_post_norm_layer(self.mlp(self.mlp_pre_norm_layer(x)))
 
-            else: # Try to mimic natural scale of activities
-                if self.config.mlp_post_norm:
-                    mlp_output = self.mlp(x)
-                    x = self.ln_2(self.ln3(x) + mlp_output)
-                else:
-                    mlp_output = self.mlp(self.ln_2(x))
-                    x = self.ln3(x) + mlp_output
-
-        return x,mlp_output
+        return x
 @dataclass
 class GPTConfig:
     block_size: int = 1024 # max sequence length
@@ -241,17 +239,11 @@ class GPTConfig:
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
     act_fun: str = 'gelu' # activation function
-    mlp_norm_type: str = 'layer' # norm type
-    attn_norm_type: str = 'layer'
-    mlp_no_skip: bool = False # use no skip connection in MLP
-    attn_no_skip: bool = False
+    mlp_pre_norm: str = 'layer' # norm type
+    attn_pre_norm: str = 'layer'
     mlp_no_bias: bool = False # use no bias in MLP
-    scaling: str = 'none'
-    mlp_penalty: bool = False
-    mlp_renormalize: str = 'none'
-    mlp_post_norm: bool = False
+    mlp_post_norm: str = 'none'
     mlp_skip_norm: str = 'none'
-    attn_post_norm: bool = False
 
 class GPT(nn.Module):
 
@@ -278,7 +270,6 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, idx, targets=None):
-        penalty = 0.0
         # idx is of shape (B, T)
         B, T = idx.size()
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
@@ -288,34 +279,16 @@ class GPT(nn.Module):
         tok_emb = self.transformer.wte(idx) # token embeddings of shape (B, T, n_embd)
         x = tok_emb + pos_emb
         # forward the blocks of the transformer
-        if np.random.random() < 0.001:
-            print_norms = True
-        else:
-            print_norms = False
         for layer_n,block in enumerate(self.transformer.h):
             # Get average norm of element
-            x, mlp_output = block(x, layer_n)
+            x = block(x, layer_n)
 
-            if print_norms:
-                nrm = torch.norm(x, dim=-1).mean()
-                mlp_output_nrm = torch.norm(mlp_output, dim=-1).mean()
-                before_nrm = torch.norm(x-mlp_output, dim=-1).mean()
-                print(f"Layer {layer_n} norm: {nrm}")
-                print(f"Layer {layer_n} mlp_output norm: {mlp_output_nrm}")
-                print(f"Layer {layer_n} before norm: {before_nrm}")
-
-            # How far for normalized is mlp output
-            if self.config.mlp_penalty:
-                penalty += 0.5*(torch.norm(mlp_output,dim=-1).mean()-1.0)**2
-     
         # forward the final layernorm and the classifier
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x) # (B, T, vocab_size)
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
-            if self.config.mlp_penalty:
-                loss += penalty
         return logits, loss
 
     @classmethod
@@ -545,18 +518,13 @@ with open(log_file, "a") as f: # open for writing to clear the file
 vocab_size = 50304
 model = GPT(GPTConfig(vocab_size=vocab_size, 
                     act_fun=args.act_fun, 
-                    mlp_norm_type=args.mlp_norm_type, 
-                    attn_norm_type=args.attn_norm_type,
-                    mlp_no_skip=args.mlp_no_skip,
-                    attn_no_skip=args.attn_no_skip,
-                    mlp_no_bias=args.mlp_no_bias,
-                    mlp_renormalize=args.mlp_renormalize,
+                    attn_pre_norm=args.attn_pre_norm,
+                    attn_post_norm=args.attn_post_norm,
+                    attn_skip_norm=args.attn_skip_norm,
+                    mlp_pre_norm=args.mlp_pre_norm, 
                     mlp_post_norm=args.mlp_post_norm,
                     mlp_skip_norm=args.mlp_skip_norm,
-                    scaling=args.scaling,
-                    mlp_penalty=args.mlp_penalty,
-                    attn_post_norm=args.attn_post_norm))
-                    
+                    mlp_no_bias=args.mlp_no_bias))                    
 
 # model = GPT.from_pretrained("gpt2") # or init from OpenAI GPT-2
 
@@ -576,7 +544,8 @@ with open(params_file, "w") as f:
 max_lr = args.max_lr
 min_lr = args.min_lr #max_lr * 0.1
 warmup_steps = args.warmup_steps
-max_steps = 3*19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+n_epochs = args.n_epochs
+max_steps = n_epochs*19073 # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 def get_lr(it):
     # 1) linear warmup for warmup_iters steps
     if it < warmup_steps:
