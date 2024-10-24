@@ -239,11 +239,14 @@ class GPTConfig:
     n_head: int = 12 # number of heads
     n_embd: int = 768 # embedding dimension
     act_fun: str = 'gelu' # activation function
-    mlp_pre_norm: str = 'layer' # norm type
     attn_pre_norm: str = 'layer'
-    mlp_no_bias: bool = False # use no bias in MLP
+    attn_post_norm: str = 'none'
+    attn_skip_norm: str = 'none'
+    mlp_pre_norm: str = 'layer' # norm type
     mlp_post_norm: str = 'none'
     mlp_skip_norm: str = 'none'
+    mlp_no_bias: bool = False # use no bias in MLP
+
 
 class GPT(nn.Module):
 
