@@ -19,17 +19,22 @@ parser.add_argument('--checkpoint_interval', type=int, default=500, help='Interv
 parser.add_argument('--output_dir', type=str, default='log', help='Output directory for model checkpoints')
 parser.add_argument('--act_fun', type=str, default='gelu', help='Activation function to use')
 parser.add_argument('--init_weights', type=str, default=None, help='Directory to load weights from (for finetuning)')
-parser.add_argument('--mlp_norm_type', type=str, default='layer', help='Type of normalization to use')
+
 parser.add_argument('--attn_norm_type', type=str, default='layer', help='Type of normalization to use')
-parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip connection in MLP')
 parser.add_argument('--attn_no_skip', action='store_true', help='Use no skip connection in attention')
+parser.add_argument('--attn_renormalize', type=str, default='none', help='Type of renormalization to use')
+parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
+parser.add_argument('--attn_skip_norm', type=str, default='none', help='Apply normalization to attention skip connections')
+
+parser.add_argument('--mlp_norm_type', type=str, default='layer', help='Type of normalization to use')
+parser.add_argument('--mlp_no_skip', action='store_true', help='Use no skip connection in MLP')
 parser.add_argument('--mlp_no_bias', action='store_true', help='Use no bias in MLP')
 parser.add_argument('--mlp_renormalize', type=str, default='none', help='Type of renormalization to use')
 parser.add_argument('--mlp_post_norm', action='store_true', help='Use post norm in MLP')
 parser.add_argument('--mlp_skip_norm', type=str, default='none', help='Apply normalization to MLP skip connections')
 parser.add_argument('--scaling', type=str, default='none', help='Type of scaling to use')
 parser.add_argument('--mlp_penalty', action='store_true', help='Penalize MLP output that is not normalized')
-parser.add_argument('--attn_post_norm', action='store_true', help='Use post norm in attention')
+
 parser.add_argument('--warmup_steps',type=int,default=715,help='Number of warmup steps for lr')
 parser.add_argument('--max_lr',type=float,default=6e-4,help='Max learning rate')
 parser.add_argument('--min_lr',type=float,default=6e-5,help='Min learning rate')
@@ -177,6 +182,14 @@ class Block(nn.Module):
             self.ln3 = nn.RMSNorm(config.n_embd)
         elif config.mlp_skip_norm == 'sphere':
             self.ln3 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+
+        if config.attn_skip_norm == 'layer':
+            self.ln4 = nn.LayerNorm(config.n_embd)
+        elif config.attn_skip_norm == 'rms':
+            self.ln4 = nn.RMSNorm(config.n_embd)
+        elif config.attn_skip_norm == 'sphere':
+            self.ln4 = nn.LayerNorm(config.n_embd, elementwise_affine=False, bias=False)
+            
 
         self.mlp = MLP(config)
         
